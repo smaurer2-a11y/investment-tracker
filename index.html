@@ -979,43 +979,49 @@
     holdings.Stocks.forEach(function (row) { if (row.ticker) tickers.push(row.ticker); });
     if (tickers.length === 0) return;
     setStockPriceStatus("", "Fetching live prices…");
-    fetch("https://api.frankfurter.app/latest?from=USD&to=EUR")
-      .then(function (r) {
-        if (!r.ok) throw new Error("HTTP " + r.status);
-        return r.json();
-      })
+
+    fetch("https://api.frankfurter.dev/v1/latest?from=USD&to=EUR")
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .catch(function () { return null; })
       .then(function (fx) {
-        var rate = fx.rates && fx.rates.EUR;
-        if (!rate) throw new Error("No EUR rate");
-        return Promise.all(tickers.map(function (ticker) {
+        var rate = (fx && fx.rates && fx.rates.EUR) || null;
+        if (!rate) throw new Error("no exchange rate");
+
+        var fetches = tickers.map(function (ticker) {
           return fetch("https://finnhub.io/api/v1/quote?symbol=" + ticker + "&token=" + FINNHUB_TOKEN)
             .then(function (r) { return r.ok ? r.json() : null; })
-            .then(function (q) { return { ticker: ticker, quote: q }; });
-        })).then(function (results) { return { rate: rate, results: results }; });
-      })
-      .then(function (data) {
-        data.results.forEach(function (item) {
-          if (item.quote && typeof item.quote.c === "number" && item.quote.c > 0) {
-            lastStockPrices[item.ticker] = Math.round(item.quote.c * data.rate * 10000) / 10000;
-          }
+            .then(function (q) { return { ticker: ticker, quote: q }; })
+            .catch(function () { return { ticker: ticker, quote: null }; });
         });
-        holdings.Stocks.forEach(function (row) {
-          if (row.ticker && lastStockPrices[row.ticker] !== undefined) {
-            row.value = Math.round((row.qty || 0) * lastStockPrices[row.ticker] * 100) / 100;
-          }
-        });
-        saveHoldings();
-        var now = new Date();
-        var timeStr = String(now.getHours()).padStart(2, "0") + ":" + String(now.getMinutes()).padStart(2, "0");
-        setStockPriceStatus("online", "Live prices updated " + timeStr);
-        withFocusPreserved(function () {
-          renderSummary();
-          renderHoldingsBucket("Stocks", "rowsStocks", "subtotalStocks");
-          renderGrowth();
+
+        return Promise.all(fetches).then(function (results) {
+          var gotAny = false;
+          results.forEach(function (item) {
+            if (item.quote && typeof item.quote.c === "number" && item.quote.c > 0) {
+              lastStockPrices[item.ticker] = Math.round(item.quote.c * rate * 10000) / 10000;
+              gotAny = true;
+            }
+          });
+          if (!gotAny) throw new Error("no quotes returned");
+
+          holdings.Stocks.forEach(function (row) {
+            if (row.ticker && lastStockPrices[row.ticker] !== undefined) {
+              row.value = Math.round((row.qty || 0) * lastStockPrices[row.ticker] * 100) / 100;
+            }
+          });
+          saveHoldings();
+          var now = new Date();
+          var timeStr = String(now.getHours()).padStart(2, "0") + ":" + String(now.getMinutes()).padStart(2, "0");
+          setStockPriceStatus("online", "Live prices updated " + timeStr);
+          withFocusPreserved(function () {
+            renderSummary();
+            renderHoldingsBucket("Stocks", "rowsStocks", "subtotalStocks");
+            renderGrowth();
+          });
         });
       })
       .catch(function (e) {
-        setStockPriceStatus("error", "Price refresh failed — showing last known values");
+        setStockPriceStatus("error", "Price refresh failed (" + (e && e.message ? e.message : "unknown error") + ") — showing last known values");
       });
   }
   document.getElementById("stockPriceRefreshBtn").addEventListener("click", refreshStockPrices);
