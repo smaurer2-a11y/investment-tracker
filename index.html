@@ -885,9 +885,9 @@
     var buckets = ["Bundesschatz", "Crypto", "Stocks"];
     var tableHtml = '<tr><th>Bucket</th><th>Holding</th><th>Cost basis</th><th>Value</th><th>Gain €</th><th>Gain %</th></tr>';
     var bucketGain = { Bundesschatz: 0, Crypto: 0, Stocks: 0 };
+    var bucketBasisSum = { Crypto: 0, Stocks: 0 };
     var bucketTracked = { Crypto: 0, Stocks: 0 };
     var bucketTotalRows = { Crypto: 0, Stocks: 0 };
-    var marketBasisSum = 0, marketGainSum = 0;
 
     buckets.forEach(function (bucket) {
       holdings[bucket].forEach(function (row) {
@@ -912,8 +912,7 @@
           if (g.gainEUR !== null) {
             bucketGain[bucket] += g.gainEUR;
             bucketTracked[bucket]++;
-            marketBasisSum += g.basis;
-            marketGainSum += g.gainEUR;
+            bucketBasisSum[bucket] += g.basis;
           }
         }
       });
@@ -942,10 +941,13 @@
     });
     document.getElementById("growthStats").innerHTML = statsHtml;
 
-    var marketPct = marketBasisSum > 0 ? (marketGainSum / marketBasisSum * 100) : 0;
-    var totalCls = gainClass(marketGainSum);
+    var cryptoPct = bucketBasisSum.Crypto > 0 ? (bucketGain.Crypto / bucketBasisSum.Crypto * 100) : 0;
+    var stocksPct = bucketBasisSum.Stocks > 0 ? (bucketGain.Stocks / bucketBasisSum.Stocks * 100) : 0;
+    var cryptoCls = gainClass(bucketGain.Crypto);
+    var stocksCls = gainClass(bucketGain.Stocks);
     document.getElementById("growthTotal").innerHTML =
-      'Market gain/loss (crypto + stocks, tracked holdings only): <strong class="' + totalCls + '">' + (marketGainSum >= 0 ? "+" : "") + fmtEUR(marketGainSum) + ' (' + (marketPct >= 0 ? "+" : "") + fmtPct(marketPct) + ')</strong>' +
+      'Crypto gain/loss (tracked holdings only): <strong class="' + cryptoCls + '">' + (bucketGain.Crypto >= 0 ? "+" : "") + fmtEUR(bucketGain.Crypto) + ' (' + (cryptoPct >= 0 ? "+" : "") + fmtPct(cryptoPct) + ')</strong>' +
+      ' · Stocks gain/loss (tracked holdings only): <strong class="' + stocksCls + '">' + (bucketGain.Stocks >= 0 ? "+" : "") + fmtEUR(bucketGain.Stocks) + ' (' + (stocksPct >= 0 ? "+" : "") + fmtPct(stocksPct) + ')</strong>' +
       ' · Bundesschatz interest to maturity: <strong class="gain-pos">+' + fmtEUR(bucketGain.Bundesschatz) + '</strong>';
   }
 
