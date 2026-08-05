@@ -517,7 +517,8 @@
     holdings: "invtrack_holdings_v1",
     contributions: "invtrack_contributions_v1",
     pending: "invtrack_pending_v1",
-    theme: "invtrack_theme_v1"
+    theme: "invtrack_theme_v1",
+    updatedAt: "invtrack_updated_at_v1"
   };
 
   var TARGETS = { Bundesschatz: 18.1, Crypto: 25.1, Stocks: 56.8 };
@@ -579,7 +580,7 @@
   var cloudUser = null;
   var cloudSaveTimer = null;
   var applyingCloudSnapshot = false;
-  var lastKnownUpdatedAt = 0;
+  var lastKnownUpdatedAt = window.storage.get(KEYS.updatedAt, 0);
 
   function buildCloudPayload(ts) {
     return { holdings: holdings, contributions: contributions, pendingActions: pendingActions, theme: theme, updatedAt: ts };
@@ -587,6 +588,7 @@
   function queueCloudSave() {
     if (!cloudUser || applyingCloudSnapshot || !window.cloudSync) return;
     lastKnownUpdatedAt = Date.now();
+    window.storage.set(KEYS.updatedAt, lastKnownUpdatedAt);
     var ts = lastKnownUpdatedAt;
     clearTimeout(cloudSaveTimer);
     cloudSaveTimer = setTimeout(function () {
@@ -600,14 +602,22 @@
     if (data.holdings) holdings = data.holdings;
     if (data.contributions) contributions = data.contributions;
     if (data.pendingActions) pendingActions = data.pendingActions;
-    if (data.updatedAt) lastKnownUpdatedAt = data.updatedAt;
+    if (data.updatedAt) {
+      lastKnownUpdatedAt = data.updatedAt;
+      window.storage.set(KEYS.updatedAt, lastKnownUpdatedAt);
+    }
     window.storage.set(KEYS.holdings, holdings);
     window.storage.set(KEYS.contributions, contributions);
     window.storage.set(KEYS.pending, pendingActions);
-    populateHoldingSelect();
-    updateFundingVisibility();
-    withFocusPreserved(renderAll);
-    applyingCloudSnapshot = false;
+    try {
+      populateHoldingSelect();
+      updateFundingVisibility();
+      withFocusPreserved(renderAll);
+    } catch (e) {
+      console.error("Render failed while applying cloud snapshot:", e);
+    } finally {
+      applyingCloudSnapshot = false;
+    }
   }
   function setSyncStatus(state, text) {
     document.getElementById("syncDot").className = "sync-dot " + state;
