@@ -1130,7 +1130,7 @@
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
   import {
-    getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged
+    getAuth, GoogleAuthProvider, signInWithRedirect, getRedirectResult, signOut, onAuthStateChanged
   } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-auth.js";
   import {
     getFirestore, doc, setDoc, onSnapshot
@@ -1156,12 +1156,14 @@
       var provider = new GoogleAuthProvider();
       var unsubSnapshot = null;
 
+      getRedirectResult(auth).catch(function (e) {
+        console.error("Redirect sign-in failed:", e);
+        if (window.__onCloudSyncError) window.__onCloudSyncError("Sign-in failed");
+      });
+
       var cloudSync = {
         signIn: function () {
-          return signInWithPopup(auth, provider).catch(function (e) {
-            console.error("Sign-in failed:", e);
-            if (window.__onCloudSyncError) window.__onCloudSyncError("Sign-in failed");
-          });
+          return signInWithRedirect(auth, provider);
         },
         signOutUser: function () { return signOut(auth); },
         onAuthChange: function (cb) { onAuthStateChanged(auth, cb); },
