@@ -579,9 +579,12 @@
   var cloudUser = null;
   var cloudSaveTimer = null;
   var applyingCloudSnapshot = false;
+  var lastKnownUpdatedAt = 0;
 
   function buildCloudPayload() {
-    return { holdings: holdings, contributions: contributions, pendingActions: pendingActions, theme: theme, updatedAt: Date.now() };
+    var ts = Date.now();
+    lastKnownUpdatedAt = ts;
+    return { holdings: holdings, contributions: contributions, pendingActions: pendingActions, theme: theme, updatedAt: ts };
   }
   function queueCloudSave() {
     if (!cloudUser || applyingCloudSnapshot || !window.cloudSync) return;
@@ -592,10 +595,12 @@
   }
   function applyCloudSnapshot(data) {
     if (!data) return;
+    if (data.updatedAt && data.updatedAt <= lastKnownUpdatedAt) return;
     applyingCloudSnapshot = true;
     if (data.holdings) holdings = data.holdings;
     if (data.contributions) contributions = data.contributions;
     if (data.pendingActions) pendingActions = data.pendingActions;
+    if (data.updatedAt) lastKnownUpdatedAt = data.updatedAt;
     window.storage.set(KEYS.holdings, holdings);
     window.storage.set(KEYS.contributions, contributions);
     window.storage.set(KEYS.pending, pendingActions);
