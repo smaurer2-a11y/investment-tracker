@@ -1066,7 +1066,7 @@
 
   function renderGrowth() {
     var buckets = ["Bundesschatz", "Crypto", "Stocks"];
-    var tableHtml = '<tr><th>Bucket</th><th>Holding</th><th>Price</th><th>Cost basis</th><th>Value</th><th>Gain €</th><th>Gain %</th></tr>';
+    var tableHtml = '<tr><th>Bucket</th><th>Holding</th><th>Price</th><th>Cost basis</th><th>Value</th><th>Gain</th></tr>';
     var bucketGain = { Bundesschatz: 0, Crypto: 0, Stocks: 0 };
     var bucketBasisSum = { Crypto: 0, Stocks: 0 };
     var bucketTracked = { Crypto: 0, Stocks: 0 };
@@ -1087,8 +1087,7 @@
           '<td>' + priceCell + '</td>' +
           '<td>' + basisCell + '</td>' +
           '<td>' + fmtEUR(g.val) + '</td>' +
-          '<td class="' + cls + '">' + (g.gainEUR === null ? "—" : (g.gainEUR >= 0 ? "+" : "") + fmtEUR(g.gainEUR)) + '</td>' +
-          '<td class="' + cls + '">' + (g.gainPct === null ? "—" : (g.gainPct >= 0 ? "+" : "") + fmtPct(g.gainPct)) + '</td>' +
+          '<td class="' + cls + '">' + (g.gainEUR === null ? "—" : (g.gainEUR >= 0 ? "+" : "") + fmtEUR(g.gainEUR) + " (" + (g.gainPct >= 0 ? "+" : "") + fmtPct(g.gainPct) + ")") + '</td>' +
           '</tr>';
 
         if (bucket === "Bundesschatz") {
