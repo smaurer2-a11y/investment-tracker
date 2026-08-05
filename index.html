@@ -372,6 +372,11 @@
 
   <section class="card">
     <h2>Stocks</h2>
+    <div class="price-bar" id="stockPriceBar">
+      <span class="dot" id="stockPriceDot"></span>
+      <span class="label" id="stockPriceText">Live prices not loaded yet</span>
+      <button type="button" id="stockPriceRefreshBtn">Refresh</button>
+    </div>
     <div class="holding-rows" id="rowsStocks"></div>
     <div class="bucket-subtotal" id="subtotalStocks"></div>
   </section>
@@ -537,13 +542,15 @@
     ],
     Stocks: [
       { id: "ishares-sp500", name: "iShares Core S&P 500 UCITS ETF (Acc)", value: 0, costBasis: null, flag: "selling", note: "Being sold — realizes an unrealized gain, triggering ~27.5% KESt. Removes the one PFIC-triggering fund." },
-      { id: "msft", name: "Microsoft", value: 0, costBasis: null },
-      { id: "nvda", name: "Nvidia", value: 0, costBasis: null },
-      { id: "pltr", name: "Palantir", value: 0, costBasis: null },
-      { id: "cvx", name: "Chevron", value: 0, costBasis: null },
-      { id: "coin", name: "Coinbase Inc. (stock)", value: 0, costBasis: null, flag: "tax-loss", note: "Eligible to offset capital gains elsewhere if sold at a loss." }
+      { id: "msft", name: "Microsoft", value: 0, costBasis: null, qty: 0, ticker: "MSFT" },
+      { id: "nvda", name: "Nvidia", value: 0, costBasis: null, qty: 0, ticker: "NVDA" },
+      { id: "pltr", name: "Palantir", value: 0, costBasis: null, qty: 0, ticker: "PLTR" },
+      { id: "cvx", name: "Chevron", value: 0, costBasis: null, qty: 0, ticker: "CVX" },
+      { id: "coin", name: "Coinbase Inc. (stock)", value: 0, costBasis: null, qty: 0, ticker: "COIN", flag: "tax-loss", note: "Eligible to offset capital gains elsewhere if sold at a loss." }
     ]
   };
+
+  var FINNHUB_TOKEN = "d9pq171r01qkp6ja8kj0d9pq171r01qkp6ja8kjg";
 
   var DEFAULT_PENDING = [
     { id: "sell-etf", label: "Sell the iShares Core S&P 500 ETF", detail: "Realizes an unrealized gain, triggering ~27.5% KESt. Removes the one PFIC-triggering fund from the portfolio.", done: false },
@@ -556,6 +563,12 @@
   var pendingActions = window.storage.get(KEYS.pending, DEFAULT_PENDING);
   var theme = window.storage.get(KEYS.theme, "dark");
   var lastPrices = {};
+  var lastStockPrices = {};
+  function rowLivePrice(row) {
+    if (row.cgId) return lastPrices[row.cgId];
+    if (row.ticker) return lastStockPrices[row.ticker];
+    return undefined;
+  }
 
   function saveHoldings() { window.storage.set(KEYS.holdings, holdings); queueCloudSave(); }
   function saveContributions() { window.storage.set(KEYS.contributions, contributions); queueCloudSave(); }
@@ -848,15 +861,16 @@
       var metaBits = [];
       if (row.rate !== undefined) metaBits.push(row.rate.toFixed(2) + "% p.a.");
       if (row.maturityDate) metaBits.push("matures " + fmtDate(row.maturityDate));
-      if (row.cgId && lastPrices[row.cgId] !== undefined) {
-        metaBits.push("@ " + fmtEUR(lastPrices[row.cgId]) + "/coin");
+      var livePrice = rowLivePrice(row);
+      if (livePrice !== undefined) {
+        metaBits.push("@ " + fmtEUR(livePrice) + (row.cgId ? "/coin" : "/share"));
       }
       var meta = metaBits.length ? '<div class="holding-meta">' + metaBits.join(" · ") + '</div>' : "";
       var flag = "";
       if (row.flag) {
         flag = '<div class="holding-flag ' + row.flag + '">' + (row.flag === "selling" ? "Being sold" : "Tax-loss candidate") + '</div>';
       }
-      var valueWrap = row.cgId
+      var valueWrap = (row.cgId || row.ticker)
         ? '<div class="holding-value-wrap qty-wrap">' +
             '<input type="number" step="0.00000001" min="0" data-qty-bucket="' + bucket + '" data-qty-id="' + row.id + '" value="' + row.qty + '">' +
             '<span class="computed-value">' + fmtEUR(row.value) + '</span>' +
@@ -895,8 +909,9 @@
         var row = holdings[b].find(function (r) { return r.id === id; });
         if (row) {
           row.qty = parseFloat(input.value) || 0;
-          if (row.cgId && lastPrices[row.cgId] !== undefined) {
-            row.value = Math.round(row.qty * lastPrices[row.cgId] * 100) / 100;
+          var lp = rowLivePrice(row);
+          if (lp !== undefined) {
+            row.value = Math.round(row.qty * lp * 100) / 100;
           }
         }
         saveHoldings();
@@ -949,6 +964,60 @@
       });
   }
   document.getElementById("priceRefreshBtn").addEventListener("click", refreshCryptoPrices);
+
+  /* ---------- live stock prices ---------- */
+  var stockRefreshTimer = null;
+  function setStockPriceStatus(state, text) {
+    var dot = document.getElementById("stockPriceDot");
+    if (dot) dot.className = "dot " + state;
+    var t = document.getElementById("stockPriceText");
+    if (t) t.textContent = text;
+  }
+  function refreshStockPrices() {
+    var tickers = [];
+    holdings.Stocks.forEach(function (row) { if (row.ticker) tickers.push(row.ticker); });
+    if (tickers.length === 0) return;
+    setStockPriceStatus("", "Fetching live prices…");
+    fetch("https://api.frankfurter.app/latest?from=USD&to=EUR")
+      .then(function (r) {
+        if (!r.ok) throw new Error("HTTP " + r.status);
+        return r.json();
+      })
+      .then(function (fx) {
+        var rate = fx.rates && fx.rates.EUR;
+        if (!rate) throw new Error("No EUR rate");
+        return Promise.all(tickers.map(function (ticker) {
+          return fetch("https://finnhub.io/api/v1/quote?symbol=" + ticker + "&token=" + FINNHUB_TOKEN)
+            .then(function (r) { return r.ok ? r.json() : null; })
+            .then(function (q) { return { ticker: ticker, quote: q }; });
+        })).then(function (results) { return { rate: rate, results: results }; });
+      })
+      .then(function (data) {
+        data.results.forEach(function (item) {
+          if (item.quote && typeof item.quote.c === "number" && item.quote.c > 0) {
+            lastStockPrices[item.ticker] = Math.round(item.quote.c * data.rate * 10000) / 10000;
+          }
+        });
+        holdings.Stocks.forEach(function (row) {
+          if (row.ticker && lastStockPrices[row.ticker] !== undefined) {
+            row.value = Math.round((row.qty || 0) * lastStockPrices[row.ticker] * 100) / 100;
+          }
+        });
+        saveHoldings();
+        var now = new Date();
+        var timeStr = String(now.getHours()).padStart(2, "0") + ":" + String(now.getMinutes()).padStart(2, "0");
+        setStockPriceStatus("online", "Live prices updated " + timeStr);
+        withFocusPreserved(function () {
+          renderSummary();
+          renderHoldingsBucket("Stocks", "rowsStocks", "subtotalStocks");
+          renderGrowth();
+        });
+      })
+      .catch(function (e) {
+        setStockPriceStatus("error", "Price refresh failed — showing last known values");
+      });
+  }
+  document.getElementById("stockPriceRefreshBtn").addEventListener("click", refreshStockPrices);
 
   /* ---------- growth / profit ---------- */
   function gainClass(gainEUR) {
@@ -1194,6 +1263,7 @@
         updateFundingVisibility();
         renderAll();
         refreshCryptoPrices();
+        refreshStockPrices();
         showToast("Imported");
       } catch (err) {
         showToast("Invalid file");
@@ -1220,7 +1290,9 @@
   applyTheme();
   renderAll();
   refreshCryptoPrices();
+  refreshStockPrices();
   priceRefreshTimer = setInterval(refreshCryptoPrices, 5 * 60 * 1000);
+  stockRefreshTimer = setInterval(refreshStockPrices, 5 * 60 * 1000);
 })();
 </script>
 
