@@ -1,0 +1,3 @@
+.tools/
+*.serviceaccount.json
+firebase-service-account*.json

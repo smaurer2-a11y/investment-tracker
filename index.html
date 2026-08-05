@@ -1,0 +1,1195 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#0f131b">
+<title>Investment Tracker</title>
+<style>
+  :root {
+    --bg: #0f131b;
+    --bg-elevated: #151b26;
+    --bg-card: #191f2b;
+    --bg-card-hover: #1f2634;
+    --border: #2a3142;
+    --text: #edeff2;
+    --text-dim: #9aa3b2;
+    --text-faint: #6b7280;
+    --accent: #c9a15a;
+    --accent-dim: #a3854a;
+    --accent-bg: rgba(201, 161, 90, 0.12);
+    --c-bundesschatz: #c9a15a;
+    --c-crypto: #5b84a6;
+    --c-stocks: #a15b4f;
+    --danger: #d9776b;
+    --danger-bg: rgba(217, 119, 107, 0.14);
+    --success: #7fae8e;
+    --success-bg: rgba(127, 174, 142, 0.12);
+    --overlay: rgba(0, 0, 0, 0.6);
+    --radius: 14px;
+    --radius-sm: 9px;
+    --shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+    --safe-top: env(safe-area-inset-top, 0px);
+    --safe-bottom: env(safe-area-inset-bottom, 0px);
+    --serif: Georgia, 'Times New Roman', serif;
+    color-scheme: dark;
+  }
+
+  :root[data-theme="light"] {
+    --bg: #f5f3ed;
+    --bg-elevated: #ffffff;
+    --bg-card: #ffffff;
+    --bg-card-hover: #faf9f4;
+    --border: #ddd8c9;
+    --text: #1b1f27;
+    --text-dim: #565c68;
+    --text-faint: #8a8f99;
+    --accent: #96733a;
+    --accent-dim: #7d5f30;
+    --accent-bg: rgba(150, 115, 58, 0.10);
+    --c-bundesschatz: #96733a;
+    --c-crypto: #3c6588;
+    --c-stocks: #8a4438;
+    --danger: #b3453a;
+    --danger-bg: rgba(179, 69, 58, 0.08);
+    --success: #3f7a54;
+    --success-bg: rgba(63, 122, 84, 0.09);
+    --overlay: rgba(0, 0, 0, 0.35);
+    --shadow: 0 8px 24px rgba(0, 0, 0, 0.10);
+    color-scheme: light;
+  }
+
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+  html, body {
+    margin: 0; padding: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    min-height: 100%;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  body { padding-top: var(--safe-top); padding-bottom: var(--safe-bottom); transition: background 0.25s ease, color 0.25s ease; }
+
+  input, select, textarea, button { font-family: inherit; font-size: 15px; }
+
+  h1, h2, h3 { font-weight: 600; margin: 0; }
+
+  .app { max-width: 760px; margin: 0 auto; padding: 16px 16px 100px; }
+
+  header.top {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 10px 2px 22px; gap: 12px;
+  }
+  .brand { display: flex; flex-direction: column; }
+  .brand .name { font-size: 20px; font-weight: 700; letter-spacing: 0.01em; }
+  .brand .tagline { font-size: 12px; color: var(--text-faint); margin-top: 2px; }
+
+  .icon-btn {
+    background: var(--bg-card); border: 1px solid var(--border); color: var(--text);
+    width: 42px; height: 42px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 17px; cursor: pointer; flex-shrink: 0;
+    transition: background 0.15s ease, transform 0.1s ease;
+  }
+  .icon-btn:active { transform: scale(0.92); }
+
+  .sync-bar {
+    display: flex; align-items: center; gap: 8px;
+    background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-sm);
+    padding: 10px 14px; margin-bottom: 16px; font-size: 12.5px; color: var(--text-dim);
+  }
+  .sync-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--text-faint); flex-shrink: 0; }
+  .sync-dot.online { background: var(--success); }
+  .sync-dot.offline { background: var(--text-faint); }
+  .sync-dot.error { background: var(--danger); }
+  .sync-text { flex: 1; min-width: 0; }
+  .sync-btn {
+    background: none; border: 1px solid var(--border); color: var(--text-dim);
+    border-radius: 999px; padding: 6px 12px; font-size: 12px; font-weight: 600; cursor: pointer; flex-shrink: 0;
+  }
+  .sync-btn:active { background: var(--bg-card-hover); }
+
+  section.card {
+    background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius);
+    padding: 18px; margin-bottom: 16px;
+  }
+  section.card h2 {
+    font-size: 13px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-dim);
+    margin-bottom: 14px;
+  }
+
+  /* ---------- summary ---------- */
+  .total-label { font-size: 12px; text-transform: uppercase; letter-spacing: 0.07em; color: var(--text-faint); }
+  .total-value { font-family: var(--serif); font-size: 40px; line-height: 1.15; margin: 4px 0 18px; }
+
+  .bucket-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 20px; }
+  .bucket-stat { background: var(--bg-elevated); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 10px 12px; }
+  .bucket-stat .dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; margin-right: 6px; }
+  .bucket-stat .label { font-size: 11px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.04em; }
+  .bucket-stat .value { font-family: var(--serif); font-size: 18px; margin-top: 4px; }
+  .bucket-stat .pct { font-size: 12px; color: var(--text-faint); margin-top: 2px; }
+
+  .chart-wrap { margin: 4px 0 16px; }
+  .chart-wrap svg { width: 100%; height: auto; display: block; }
+  .chart-legend { display: flex; gap: 14px; flex-wrap: wrap; margin-top: 8px; font-size: 12px; color: var(--text-dim); }
+  .chart-legend span { display: inline-flex; align-items: center; gap: 5px; }
+  .chart-legend .dot { width: 8px; height: 8px; border-radius: 50%; }
+
+  table.drift-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  table.drift-table th { text-align: left; color: var(--text-faint); font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em; padding: 6px 8px; border-bottom: 1px solid var(--border); }
+  table.drift-table td { padding: 8px 8px; border-bottom: 1px solid var(--border); }
+  table.drift-table tr:last-child td { border-bottom: none; }
+  .delta.pos { color: var(--danger); }
+  .delta.neg { color: var(--accent); }
+  .delta.flat { color: var(--text-faint); }
+
+  /* ---------- growth / profit ---------- */
+  .growth-total { font-size: 13px; color: var(--text-dim); margin: 2px 0 16px; }
+  .growth-total strong { font-family: var(--serif); font-size: 15px; color: var(--text); }
+  .gain-pos { color: var(--success); }
+  .gain-neg { color: var(--danger); }
+  .gain-flat { color: var(--text-faint); }
+  table.growth-table { width: 100%; border-collapse: collapse; font-size: 12.5px; min-width: 560px; }
+  table.growth-table th { text-align: left; color: var(--text-faint); font-weight: 600; font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.03em; padding: 7px 8px; border-bottom: 1px solid var(--border); white-space: nowrap; }
+  table.growth-table td { padding: 8px 8px; border-bottom: 1px solid var(--border); white-space: nowrap; }
+  table.growth-table input[type="number"] {
+    width: 90px; background: var(--bg-elevated); border: 1px solid var(--border); color: var(--text);
+    border-radius: var(--radius-sm); padding: 6px 8px; text-align: right;
+  }
+  table.growth-table input[type="number"]:focus { border-color: var(--accent); outline: none; }
+  .bucket-stat .val-sub { font-size: 10.5px; color: var(--text-faint); margin-top: 2px; }
+
+  /* ---------- reminders ---------- */
+  .reminder {
+    display: flex; align-items: flex-start; gap: 12px;
+    padding: 12px; border-radius: var(--radius-sm); border: 1px solid var(--border);
+    background: var(--bg-elevated); margin-bottom: 10px;
+  }
+  .reminder:last-child { margin-bottom: 0; }
+  .reminder.due-soon { border-color: var(--accent); background: var(--accent-bg); }
+  .reminder.overdue { border-color: var(--danger); background: var(--danger-bg); }
+  .reminder.resolved { opacity: 0.55; }
+  .reminder .check {
+    width: 22px; height: 22px; border-radius: 50%; border: 2px solid var(--text-faint);
+    flex-shrink: 0; margin-top: 2px; cursor: pointer; background: transparent;
+    display: flex; align-items: center; justify-content: center;
+    transition: background 0.2s ease, border-color 0.2s ease;
+  }
+  .reminder.resolved .check { background: var(--success); border-color: var(--success); }
+  .reminder .check svg { width: 12px; height: 12px; opacity: 0; }
+  .reminder.resolved .check svg { opacity: 1; }
+  .reminder .body { flex: 1; min-width: 0; }
+  .reminder .title { font-size: 14px; font-weight: 600; }
+  .reminder .detail { font-size: 13px; color: var(--text-dim); margin-top: 3px; line-height: 1.4; }
+  .reminder .badge { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em; margin-top: 6px; display: inline-block; }
+  .reminder.due-soon .badge { color: var(--accent); }
+  .reminder.overdue .badge { color: var(--danger); }
+
+  /* ---------- holdings ---------- */
+  .holding-row {
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 0; border-bottom: 1px solid var(--border);
+  }
+  .holding-row:last-child { border-bottom: none; }
+  .holding-main { flex: 1; min-width: 0; }
+  .holding-name { font-size: 14px; font-weight: 600; }
+  .holding-meta { font-size: 12px; color: var(--text-faint); margin-top: 2px; }
+  .holding-flag {
+    display: inline-flex; align-items: center; font-size: 10.5px; font-weight: 700;
+    text-transform: uppercase; letter-spacing: 0.03em; padding: 2px 7px; border-radius: 999px;
+    margin-top: 5px;
+  }
+  .holding-flag.selling { color: var(--accent); background: var(--accent-bg); }
+  .holding-flag.tax-loss { color: var(--danger); background: var(--danger-bg); }
+  .holding-value-wrap { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+  .holding-value-wrap .euro { color: var(--text-faint); font-size: 13px; }
+  .holding-row input[type="number"] {
+    width: 108px; background: var(--bg-elevated); border: 1px solid var(--border); color: var(--text);
+    border-radius: var(--radius-sm); padding: 8px 9px; text-align: right; -moz-appearance: textfield;
+  }
+  .holding-row input[type="number"]::-webkit-outer-spin-button,
+  .holding-row input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+  .holding-row input[type="number"]:focus { border-color: var(--accent); outline: none; }
+  .holding-pct { font-size: 11px; color: var(--text-faint); width: 44px; text-align: right; flex-shrink: 0; }
+  .bucket-subtotal { display: flex; justify-content: space-between; padding-top: 12px; margin-top: 4px; border-top: 1px solid var(--border); font-size: 13px; color: var(--text-dim); }
+  .bucket-subtotal strong { color: var(--text); font-family: var(--serif); font-size: 15px; }
+  .redirect-check { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-dim); margin-top: 5px; cursor: pointer; user-select: none; }
+  .redirect-check input { width: 14px; height: 14px; }
+
+  /* ---------- contributions ---------- */
+  form.contrib-form { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin-bottom: 14px; }
+  form.contrib-form .full { grid-column: 1 / -1; }
+  form.contrib-form label { display: block; font-size: 11px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 4px; }
+  form.contrib-form input, form.contrib-form select {
+    width: 100%; background: var(--bg-elevated); border: 1px solid var(--border); color: var(--text);
+    border-radius: var(--radius-sm); padding: 10px 11px; min-height: 42px;
+  }
+  form.contrib-form input:focus, form.contrib-form select:focus { border-color: var(--accent); outline: none; }
+  .apply-check { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--text-dim); cursor: pointer; text-transform: none; letter-spacing: normal; }
+  .apply-check input { width: 16px; height: 16px; flex-shrink: 0; }
+  .btn-primary {
+    background: var(--accent); color: #14171c; border: none; border-radius: var(--radius-sm);
+    padding: 12px; font-weight: 700; font-size: 14px; cursor: pointer; min-height: 44px;
+    transition: transform 0.1s ease;
+  }
+  .btn-primary:active { transform: scale(0.98); }
+
+  .table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; margin-bottom: 12px; }
+  table.contrib-table { width: 100%; border-collapse: collapse; font-size: 12.5px; min-width: 560px; }
+  table.contrib-table th { text-align: left; color: var(--text-faint); font-weight: 600; font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.03em; padding: 7px 8px; border-bottom: 1px solid var(--border); white-space: nowrap; }
+  table.contrib-table td { padding: 8px 8px; border-bottom: 1px solid var(--border); white-space: nowrap; }
+  table.contrib-table .del-btn { background: none; border: none; color: var(--text-faint); cursor: pointer; font-size: 14px; }
+  table.contrib-table .del-btn:active { color: var(--danger); }
+  .empty-note { font-size: 13px; color: var(--text-faint); padding: 10px 0; }
+
+  .contrib-totals { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+  .contrib-total-tile { background: var(--bg-elevated); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 10px 12px; }
+  .contrib-total-tile .label { font-size: 10.5px; color: var(--text-faint); text-transform: uppercase; letter-spacing: 0.03em; }
+  .contrib-total-tile .val { font-family: var(--serif); font-size: 16px; margin-top: 3px; }
+  .contrib-total-tile .sub { font-size: 11px; color: var(--text-dim); margin-top: 2px; }
+
+  /* ---------- reference ---------- */
+  .toggle-options {
+    background: var(--bg-card); border: 1px solid var(--border); color: var(--text-dim);
+    font-size: 13px; padding: 12px 16px; border-radius: var(--radius); cursor: pointer;
+    display: flex; align-items: center; justify-content: space-between; width: 100%; margin-bottom: 16px;
+  }
+  .toggle-options .chev { transition: transform 0.2s ease; }
+  .toggle-options.open .chev { transform: rotate(180deg); }
+  .reference-panel { display: none; margin-top: -6px; }
+  .reference-panel.open { display: block; }
+  .ref-block { margin-bottom: 18px; }
+  .ref-block:last-child { margin-bottom: 0; }
+  .ref-block h3 { font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-dim); margin-bottom: 8px; }
+  .ref-block p { font-size: 13px; color: var(--text-dim); line-height: 1.55; margin: 0 0 6px; }
+  table.ref-table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+  table.ref-table th { text-align: left; color: var(--text-faint); font-weight: 600; font-size: 10.5px; text-transform: uppercase; padding: 6px 8px; border-bottom: 1px solid var(--border); }
+  table.ref-table td { padding: 6px 8px; border-bottom: 1px solid var(--border); }
+  ul.ref-list { margin: 0; padding-left: 18px; font-size: 13px; color: var(--text-dim); line-height: 1.6; }
+
+  .data-actions { display: flex; gap: 8px; margin-top: 8px; flex-wrap: wrap; }
+  .data-actions button {
+    flex: 1; min-width: 120px; background: var(--bg-card); border: 1px solid var(--border); color: var(--text-dim);
+    border-radius: var(--radius-sm); padding: 12px 10px; font-size: 13px; font-weight: 600; cursor: pointer; min-height: 44px;
+  }
+  .data-actions button:active { background: var(--bg-card-hover); }
+
+  .toast {
+    position: fixed; left: 50%; bottom: calc(24px + var(--safe-bottom)); transform: translateX(-50%) translateY(20px);
+    background: var(--bg-elevated); border: 1px solid var(--border); color: var(--text);
+    padding: 12px 20px; border-radius: 999px; font-size: 14px; box-shadow: var(--shadow);
+    opacity: 0; pointer-events: none; transition: opacity 0.25s ease, transform 0.25s ease; z-index: 200;
+    max-width: 90vw; text-align: center;
+  }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+  .visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+
+  @media (max-width: 420px) {
+    .bucket-stats { grid-template-columns: 1fr; }
+    .contrib-totals { grid-template-columns: 1fr; }
+    form.contrib-form { grid-template-columns: 1fr; }
+    .total-value { font-size: 32px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="app">
+  <header class="top">
+    <div class="brand">
+      <div class="name">Investment Tracker</div>
+      <div class="tagline">Holdings, allocation &amp; contributions</div>
+    </div>
+    <button class="icon-btn" id="themeToggle" type="button" aria-label="Toggle dark/light theme">🌙</button>
+  </header>
+
+  <div class="sync-bar" id="syncBar">
+    <span class="sync-dot" id="syncDot"></span>
+    <span class="sync-text" id="syncText">Loading sync…</span>
+    <button type="button" class="sync-btn" id="syncBtn">Sign in to sync</button>
+  </div>
+
+  <section class="card">
+    <div class="total-label">Total Portfolio</div>
+    <div class="total-value" id="totalValue">€0</div>
+    <div class="bucket-stats" id="bucketStats"></div>
+    <div class="chart-wrap" id="chartWrap"></div>
+    <table class="drift-table" id="driftTable"></table>
+  </section>
+
+  <section class="card">
+    <h2>Growth &amp; Profit</h2>
+    <div class="bucket-stats" id="growthStats"></div>
+    <div class="growth-total" id="growthTotal"></div>
+    <div class="table-scroll">
+      <table class="growth-table" id="growthTable"></table>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>Action Items</h2>
+    <div id="remindersList"></div>
+  </section>
+
+  <section class="card">
+    <h2>Bundesschatz</h2>
+    <div class="holding-rows" id="rowsBundesschatz"></div>
+    <div class="bucket-subtotal" id="subtotalBundesschatz"></div>
+  </section>
+
+  <section class="card">
+    <h2>Crypto (Bitstamp)</h2>
+    <div class="holding-rows" id="rowsCrypto"></div>
+    <div class="bucket-subtotal" id="subtotalCrypto"></div>
+  </section>
+
+  <section class="card">
+    <h2>Stocks</h2>
+    <div class="holding-rows" id="rowsStocks"></div>
+    <div class="bucket-subtotal" id="subtotalStocks"></div>
+  </section>
+
+  <section class="card">
+    <h2>Contribution Log</h2>
+    <form class="contrib-form" id="contribForm" autocomplete="off">
+      <div>
+        <label for="cDate">Date</label>
+        <input type="date" id="cDate" required>
+      </div>
+      <div class="full">
+        <label for="cHolding">Holding</label>
+        <select id="cHolding"></select>
+      </div>
+      <div>
+        <label for="cGross">Gross amount (€)</label>
+        <input type="number" id="cGross" step="0.01" min="0" required>
+      </div>
+      <div>
+        <label for="cFee">Fee / cost (€)</label>
+        <input type="number" id="cFee" step="0.01" min="0" value="0">
+      </div>
+      <div id="cFundingWrap">
+        <label for="cFunding">Funding method</label>
+        <select id="cFunding">
+          <option value="Bank transfer">Bank transfer</option>
+          <option value="Card / PayPal / Apple Pay">Card / PayPal / Apple Pay</option>
+          <option value="Other">Other</option>
+        </select>
+      </div>
+      <div>
+        <label for="cNote">Note (optional)</label>
+        <input type="text" id="cNote" maxlength="80" placeholder="e.g. Sparplan execution">
+      </div>
+      <div class="full">
+        <label class="apply-check" for="cApply"><input type="checkbox" id="cApply" checked> Add net amount to this holding's current value</label>
+      </div>
+      <div class="full">
+        <button type="submit" class="btn-primary">Log contribution</button>
+      </div>
+    </form>
+    <div class="table-scroll">
+      <table class="contrib-table" id="contribTable"></table>
+    </div>
+    <div class="contrib-totals" id="contribTotals"></div>
+  </section>
+
+  <button type="button" class="toggle-options" id="toggleReference">
+    <span>Contribution plan, fees &amp; tax reference</span><span class="chev">▾</span>
+  </button>
+  <div class="reference-panel card" id="referencePanel">
+
+    <div class="ref-block">
+      <h3>€30,000 lump sum — new money routing</h3>
+      <p>0% to Bundesschatz (target already applies to the whole portfolio, not just new money) — the full amount splits 20:70 crypto:stocks.</p>
+      <table class="ref-table">
+        <tr><th>Bucket</th><th>New money</th><th>Weight</th></tr>
+        <tr><td>Bundesschatz</td><td>€0</td><td>0%</td></tr>
+        <tr><td>Crypto</td><td>€6,667</td><td>~22.2%</td></tr>
+        <tr><td>Stocks</td><td>€23,333</td><td>~77.8%</td></tr>
+      </table>
+    </div>
+
+    <div class="ref-block">
+      <h3>Recurring monthly contribution — €1,000/month</h3>
+      <table class="ref-table">
+        <tr><th>Bucket</th><th>Amount</th><th>Automation</th></tr>
+        <tr><td>Bundesschatz</td><td>€0</td><td>—</td></tr>
+        <tr><td>Crypto</td><td>€222.22</td><td>Bitstamp Recurring Buy</td></tr>
+        <tr><td>Stocks</td><td>€777.78</td><td>George Sparplan (flat €1/execution)</td></tr>
+      </table>
+      <p style="margin-top:8px;">Crypto funding method matters: ~0.4% via bank transfer vs. ~4% via card/PayPal — the gap compounds to roughly €96/year. Stock split across Microsoft, Nvidia, Chevron, Palantir (and wherever ETF proceeds land) is still an open decision.</p>
+    </div>
+
+    <div class="ref-block">
+      <h3>Fee structure</h3>
+      <ul class="ref-list">
+        <li><strong>Stocks:</strong> €1 flat per Sparplan execution; one-off orders vary by exchange (e.g. Xetra ~€21.10 min or 0.80%); no custody fee up to €50k, 0.216% p.a. above; 27.5% KESt withheld on realized gains.</li>
+        <li><strong>Crypto:</strong> Standard/Pro trading ~0.30–0.50% at typical volume; Instant Buy/Sell bundles ~0.4% into the spread; card/PayPal/Apple Pay funding adds a separate ~4% fee — bank transfer avoids this.</li>
+        <li><strong>Bundesschatz:</strong> zero fees, costs, or Spesen on purchase, holding, or payout.</li>
+      </ul>
+    </div>
+
+    <div class="ref-block">
+      <h3>Why individual stocks, not ETFs</h3>
+      <p>Dual US/Austrian citizen — both regimes penalize pooled funds, so the equity sleeve is single-name stocks:</p>
+      <ul class="ref-list">
+        <li>UCITS (EU-domiciled) ETFs trigger US PFIC reporting/tax — the iShares S&amp;P 500 fund is the live example, hence the sale.</li>
+        <li>US-domiciled ETFs trigger Austrian <em>Nichtmeldefonds</em> pauschal taxation.</li>
+        <li>Individual stocks stay clean on both sides.</li>
+      </ul>
+    </div>
+
+  </div>
+
+  <div class="data-actions">
+    <button type="button" id="exportBtn">Export JSON</button>
+    <button type="button" id="importBtn">Import JSON</button>
+    <input type="file" id="importFile" accept="application/json" class="visually-hidden">
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+(function () {
+  "use strict";
+
+  /* ---------- window.storage shim (localStorage-backed, offline-safe) ---------- */
+  window.storage = (function () {
+    var memory = {};
+    var available = true;
+    try {
+      var testKey = "__invtrack_storage_test__";
+      localStorage.setItem(testKey, "1");
+      localStorage.removeItem(testKey);
+    } catch (e) { available = false; }
+    return {
+      get: function (key, fallback) {
+        try {
+          if (!available) return Object.prototype.hasOwnProperty.call(memory, key) ? memory[key] : (fallback === undefined ? null : fallback);
+          var raw = localStorage.getItem(key);
+          if (raw === null) return fallback === undefined ? null : fallback;
+          return JSON.parse(raw);
+        } catch (e) { return fallback === undefined ? null : fallback; }
+      },
+      set: function (key, value) {
+        try {
+          if (!available) { memory[key] = value; return; }
+          localStorage.setItem(key, JSON.stringify(value));
+        } catch (e) { memory[key] = value; }
+      }
+    };
+  })();
+
+  var KEYS = {
+    holdings: "invtrack_holdings_v1",
+    contributions: "invtrack_contributions_v1",
+    pending: "invtrack_pending_v1",
+    theme: "invtrack_theme_v1"
+  };
+
+  var TARGETS = { Bundesschatz: 18.1, Crypto: 25.1, Stocks: 56.8 };
+  var BUCKET_COLOR_VAR = { Bundesschatz: "--c-bundesschatz", Crypto: "--c-crypto", Stocks: "--c-stocks" };
+
+  var DEFAULT_HOLDINGS = {
+    Bundesschatz: [
+      { id: "bs-1", name: "1-Month Term", value: 0, rate: 2.20, maturityDate: "", reinvestAmount: 0, redirectHandled: false },
+      { id: "bs-2", name: "1-Month Term", value: 0, rate: 2.20, maturityDate: "", reinvestAmount: 0, redirectHandled: false }
+    ],
+    Crypto: [
+      { id: "btc", name: "Bitcoin (BTC)", value: 0, costBasis: null },
+      { id: "eth", name: "Ethereum (ETH)", value: 0, costBasis: null },
+      { id: "sol", name: "Solana (SOL)", value: 0, costBasis: null },
+      { id: "xrp", name: "XRP", value: 0, costBasis: null },
+      { id: "ada", name: "Cardano (ADA)", value: 0, costBasis: null },
+      { id: "bch", name: "Bitcoin Cash (BCH)", value: 0, costBasis: null },
+      { id: "link", name: "Chainlink (LINK)", value: 0, costBasis: null },
+      { id: "avax", name: "Avalanche (AVAX)", value: 0, costBasis: null },
+      { id: "crypto-unalloc", name: "Unallocated (not yet itemized by coin)", value: 0, costBasis: null },
+      { id: "crypto-cash", name: "Idle EUR cash", value: 0, costBasis: null }
+    ],
+    Stocks: [
+      { id: "ishares-sp500", name: "iShares Core S&P 500 UCITS ETF (Acc)", value: 0, costBasis: null, flag: "selling", note: "Being sold — realizes an unrealized gain, triggering ~27.5% KESt. Removes the one PFIC-triggering fund." },
+      { id: "msft", name: "Microsoft", value: 0, costBasis: null },
+      { id: "nvda", name: "Nvidia", value: 0, costBasis: null },
+      { id: "pltr", name: "Palantir", value: 0, costBasis: null },
+      { id: "cvx", name: "Chevron", value: 0, costBasis: null },
+      { id: "coin", name: "Coinbase Inc. (stock)", value: 0, costBasis: null, flag: "tax-loss", note: "Eligible to offset capital gains elsewhere if sold at a loss." }
+    ]
+  };
+
+  var DEFAULT_PENDING = [
+    { id: "sell-etf", label: "Sell the iShares Core S&P 500 ETF", detail: "Realizes an unrealized gain, triggering ~27.5% KESt. Removes the one PFIC-triggering fund from the portfolio.", done: false },
+    { id: "allocate-proceeds", label: "Decide where the ETF sale proceeds go", detail: "Not yet allocated to a specific stock or bucket.", done: false }
+  ];
+
+  /* ---------- state ---------- */
+  var holdings = window.storage.get(KEYS.holdings, DEFAULT_HOLDINGS);
+  var contributions = window.storage.get(KEYS.contributions, []);
+  var pendingActions = window.storage.get(KEYS.pending, DEFAULT_PENDING);
+  var theme = window.storage.get(KEYS.theme, "dark");
+
+  function saveHoldings() { window.storage.set(KEYS.holdings, holdings); queueCloudSave(); }
+  function saveContributions() { window.storage.set(KEYS.contributions, contributions); queueCloudSave(); }
+  function savePending() { window.storage.set(KEYS.pending, pendingActions); queueCloudSave(); }
+
+  /* ---------- cloud sync (Firebase, optional) ---------- */
+  var cloudUser = null;
+  var cloudSaveTimer = null;
+  var applyingCloudSnapshot = false;
+
+  function buildCloudPayload() {
+    return { holdings: holdings, contributions: contributions, pendingActions: pendingActions, theme: theme, updatedAt: Date.now() };
+  }
+  function queueCloudSave() {
+    if (!cloudUser || applyingCloudSnapshot || !window.cloudSync) return;
+    clearTimeout(cloudSaveTimer);
+    cloudSaveTimer = setTimeout(function () {
+      window.cloudSync.save(cloudUser.uid, buildCloudPayload());
+    }, 800);
+  }
+  function applyCloudSnapshot(data) {
+    if (!data) return;
+    applyingCloudSnapshot = true;
+    if (data.holdings) holdings = data.holdings;
+    if (data.contributions) contributions = data.contributions;
+    if (data.pendingActions) pendingActions = data.pendingActions;
+    window.storage.set(KEYS.holdings, holdings);
+    window.storage.set(KEYS.contributions, contributions);
+    window.storage.set(KEYS.pending, pendingActions);
+    populateHoldingSelect();
+    updateFundingVisibility();
+    withFocusPreserved(renderAll);
+    applyingCloudSnapshot = false;
+  }
+  function setSyncStatus(state, text) {
+    document.getElementById("syncDot").className = "sync-dot " + state;
+    document.getElementById("syncText").textContent = text;
+  }
+  window.__onCloudSyncUnconfigured = function () {
+    setSyncStatus("offline", "Cloud sync not set up — using this device only");
+    document.getElementById("syncBtn").style.display = "none";
+  };
+  window.__onCloudSyncError = function (msg) {
+    setSyncStatus("error", msg + " — changes are still saved on this device");
+  };
+  window.__onCloudSyncReady = function (cloudSync) {
+    var syncBtn = document.getElementById("syncBtn");
+    syncBtn.addEventListener("click", function () {
+      if (cloudUser) {
+        cloudSync.signOutUser();
+      } else {
+        setSyncStatus("", "Signing in…");
+        cloudSync.signIn();
+      }
+    });
+    cloudSync.onAuthChange(function (user) {
+      if (user) {
+        cloudUser = user;
+        syncBtn.textContent = "Sign out";
+        setSyncStatus("online", "Synced as " + (user.email || "your account"));
+        cloudSync.watch(user.uid, function (data) {
+          if (!data) {
+            cloudSync.save(user.uid, buildCloudPayload());
+            return;
+          }
+          applyCloudSnapshot(data);
+        });
+      } else {
+        cloudUser = null;
+        cloudSync.stopWatch();
+        syncBtn.textContent = "Sign in to sync";
+        setSyncStatus("offline", "Not signed in — using this device only");
+      }
+    });
+  };
+
+  function withFocusPreserved(renderFn) {
+    var active = document.activeElement;
+    var restore = null;
+    if (active && active.tagName === "INPUT") {
+      restore = {
+        bucket: active.getAttribute("data-bucket") || active.getAttribute("data-cb-bucket"),
+        id: active.getAttribute("data-id") || active.getAttribute("data-cb-id"),
+        isCostBasis: active.hasAttribute("data-cb-id"),
+        selStart: active.selectionStart,
+        selEnd: active.selectionEnd
+      };
+    }
+    renderFn();
+    if (restore && restore.id) {
+      var selector = restore.isCostBasis
+        ? '[data-cb-bucket="' + restore.bucket + '"][data-cb-id="' + restore.id + '"]'
+        : '[data-bucket="' + restore.bucket + '"][data-id="' + restore.id + '"]';
+      var el = document.querySelector(selector);
+      if (el) {
+        el.focus();
+        if (el.setSelectionRange && restore.selStart !== null && restore.selStart !== undefined) {
+          try { el.setSelectionRange(restore.selStart, restore.selEnd); } catch (e) {}
+        }
+      }
+    }
+  }
+
+  /* ---------- helpers ---------- */
+  function uid() {
+    if (window.crypto && crypto.randomUUID) return crypto.randomUUID();
+    return "id-" + Date.now() + "-" + Math.random().toString(16).slice(2);
+  }
+  function todayISO() {
+    var d = new Date();
+    return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+  }
+  function fmtEUR(n) {
+    n = Number(n) || 0;
+    return n.toLocaleString("de-AT", { style: "currency", currency: "EUR", minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
+  function fmtPct(n, digits) {
+    return (Number(n) || 0).toFixed(digits === undefined ? 1 : digits) + "%";
+  }
+  function fmtDate(dateStr) {
+    var d = new Date(dateStr + "T00:00:00");
+    return d.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
+  }
+  function daysUntil(dateStr) {
+    var target = new Date(dateStr + "T00:00:00");
+    var now = new Date();
+    var startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    return Math.round((target - startOfToday) / 86400000);
+  }
+  function escapeHtml(str) {
+    var div = document.createElement("div");
+    div.textContent = String(str);
+    return div.innerHTML;
+  }
+  function bucketTotal(bucket) {
+    return holdings[bucket].reduce(function (sum, h) { return sum + (Number(h.value) || 0); }, 0);
+  }
+  function findHoldingById(id) {
+    var buckets = ["Bundesschatz", "Crypto", "Stocks"];
+    for (var i = 0; i < buckets.length; i++) {
+      var row = holdings[buckets[i]].find(function (r) { return r.id === id; });
+      if (row) return { bucket: buckets[i], row: row };
+    }
+    return null;
+  }
+  function grandTotal() {
+    return bucketTotal("Bundesschatz") + bucketTotal("Crypto") + bucketTotal("Stocks");
+  }
+
+  var toastTimer = null;
+  function showToast(msg) {
+    var el = document.getElementById("toast");
+    el.textContent = msg;
+    el.classList.add("show");
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () { el.classList.remove("show"); }, 2200);
+  }
+
+  var CHECK_SVG = '<svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M3 8.5L6.2 12L13 4" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" stroke="currentColor"/></svg>';
+
+  /* ---------- theme ---------- */
+  function applyTheme() {
+    document.documentElement.setAttribute("data-theme", theme);
+    document.getElementById("themeToggle").textContent = theme === "dark" ? "🌙" : "☀️";
+    var meta = document.querySelector('meta[name="theme-color"]');
+    if (meta) meta.setAttribute("content", theme === "dark" ? "#0f131b" : "#f5f3ed");
+  }
+  document.getElementById("themeToggle").addEventListener("click", function () {
+    theme = theme === "dark" ? "light" : "dark";
+    window.storage.set(KEYS.theme, theme);
+    queueCloudSave();
+    applyTheme();
+    renderAll();
+  });
+
+  /* ---------- summary ---------- */
+  function renderSummary() {
+    var total = grandTotal();
+    document.getElementById("totalValue").textContent = fmtEUR(total);
+
+    var buckets = ["Bundesschatz", "Crypto", "Stocks"];
+    var statsHtml = "";
+    buckets.forEach(function (b) {
+      var val = bucketTotal(b);
+      var pct = total > 0 ? (val / total * 100) : 0;
+      statsHtml += '<div class="bucket-stat">' +
+        '<div class="label"><span class="dot" style="background:var(' + BUCKET_COLOR_VAR[b] + ')"></span>' + b + '</div>' +
+        '<div class="value">' + fmtEUR(val) + '</div>' +
+        '<div class="pct">' + fmtPct(pct) + ' of portfolio</div>' +
+        '</div>';
+    });
+    document.getElementById("bucketStats").innerHTML = statsHtml;
+
+    /* stacked bar chart: current vs target */
+    var W = 600, barH = 34, gap = 14, labelW = 64;
+    var trackW = W - labelW;
+    function seg(row, bucket, x, w) {
+      var color = "var(" + BUCKET_COLOR_VAR[bucket] + ")";
+      return '<rect x="' + x + '" y="' + row + '" width="' + Math.max(w, 0) + '" height="' + barH + '" fill="' + color + '" rx="3"></rect>';
+    }
+    var rowsSvg = "";
+    // current row
+    var cx = labelW;
+    rowsSvg += '<text x="0" y="' + (barH / 2 + 5) + '" font-size="11" fill="var(--text-faint)">Current</text>';
+    buckets.forEach(function (b) {
+      var pct = total > 0 ? (bucketTotal(b) / total * 100) : 0;
+      var w = trackW * pct / 100;
+      rowsSvg += seg(0, b, cx, w);
+      cx += w;
+    });
+    // target row
+    var y2 = barH + gap;
+    var tx = labelW;
+    rowsSvg += '<text x="0" y="' + (y2 + barH / 2 + 5) + '" font-size="11" fill="var(--text-faint)">Target</text>';
+    buckets.forEach(function (b) {
+      var pct = TARGETS[b];
+      var w = trackW * pct / 100;
+      rowsSvg += seg(y2, b, tx, w);
+      tx += w;
+    });
+    var svgH = barH * 2 + gap;
+    var svg = '<svg viewBox="0 0 ' + W + ' ' + svgH + '" xmlns="http://www.w3.org/2000/svg">' + rowsSvg + '</svg>';
+    var legend = '<div class="chart-legend">' + buckets.map(function (b) {
+      return '<span><span class="dot" style="background:var(' + BUCKET_COLOR_VAR[b] + ')"></span>' + b + '</span>';
+    }).join("") + '</div>';
+    document.getElementById("chartWrap").innerHTML = svg + legend;
+
+    /* drift table */
+    var driftHtml = '<tr><th>Bucket</th><th>Current</th><th>Target</th><th>Δ</th></tr>';
+    buckets.forEach(function (b) {
+      var pct = total > 0 ? (bucketTotal(b) / total * 100) : 0;
+      var target = TARGETS[b];
+      var delta = pct - target;
+      var cls = Math.abs(delta) < 0.5 ? "flat" : (delta > 0 ? "pos" : "neg");
+      var sign = delta > 0 ? "+" : "";
+      driftHtml += '<tr><td>' + b + '</td><td>' + fmtPct(pct) + '</td><td>' + fmtPct(target) + '</td><td class="delta ' + cls + '">' + sign + fmtPct(delta) + '</td></tr>';
+    });
+    document.getElementById("driftTable").innerHTML = driftHtml;
+  }
+
+  /* ---------- reminders ---------- */
+  function renderReminders() {
+    var html = "";
+    holdings.Bundesschatz.forEach(function (row) {
+      if (!row.maturityDate) return;
+      var days = daysUntil(row.maturityDate);
+      var handled = !!row.redirectHandled;
+      var stateCls = handled ? "resolved" : (days < 0 ? "overdue" : (days <= 14 ? "due-soon" : ""));
+      var badge = handled ? "Redirected" : (days < 0 ? Math.abs(days) + " day(s) overdue" : (days === 0 ? "Due today" : days + " day(s) left"));
+      html += '<div class="reminder ' + stateCls + '">' +
+        '<button type="button" class="check" data-redirect="' + row.id + '" aria-label="Mark redirected">' + CHECK_SVG + '</button>' +
+        '<div class="body">' +
+          '<div class="title">Redirect ' + fmtEUR(row.value) + ' term (matures ' + fmtDate(row.maturityDate) + ')</div>' +
+          '<div class="detail">Reinvests as ' + fmtEUR(row.reinvestAmount) + ' into another 1-month term by default. Redirect into the 4-year "Grün" Bundesschatz at 2.70% p.a. instead, before the maturity date.</div>' +
+          '<div class="badge">' + badge + '</div>' +
+        '</div></div>';
+    });
+    pendingActions.forEach(function (a) {
+      html += '<div class="reminder ' + (a.done ? "resolved" : "") + '">' +
+        '<button type="button" class="check" data-pending="' + a.id + '" aria-label="Mark done">' + CHECK_SVG + '</button>' +
+        '<div class="body"><div class="title">' + escapeHtml(a.label) + '</div><div class="detail">' + escapeHtml(a.detail) + '</div></div></div>';
+    });
+    document.getElementById("remindersList").innerHTML = html || '<div class="empty-note">No open action items.</div>';
+
+    document.querySelectorAll("[data-redirect]").forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        var id = btn.getAttribute("data-redirect");
+        holdings.Bundesschatz.forEach(function (row) { if (row.id === id) row.redirectHandled = !row.redirectHandled; });
+        saveHoldings();
+        renderReminders();
+      });
+    });
+    document.querySelectorAll("[data-pending]").forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        var id = btn.getAttribute("data-pending");
+        pendingActions.forEach(function (a) { if (a.id === id) a.done = !a.done; });
+        savePending();
+        renderReminders();
+      });
+    });
+  }
+
+  /* ---------- holdings ---------- */
+  function renderHoldingsBucket(bucket, containerId, subtotalId) {
+    var rows = holdings[bucket];
+    var total = bucketTotal(bucket);
+    var html = "";
+    rows.forEach(function (row) {
+      var pct = total > 0 ? (row.value / total * 100) : 0;
+      var metaBits = [];
+      if (row.rate !== undefined) metaBits.push(row.rate.toFixed(2) + "% p.a.");
+      if (row.maturityDate) metaBits.push("matures " + fmtDate(row.maturityDate));
+      var meta = metaBits.length ? '<div class="holding-meta">' + metaBits.join(" · ") + '</div>' : "";
+      var flag = "";
+      if (row.flag) {
+        flag = '<div class="holding-flag ' + row.flag + '">' + (row.flag === "selling" ? "Being sold" : "Tax-loss candidate") + '</div>';
+      }
+      html += '<div class="holding-row">' +
+        '<div class="holding-main">' +
+          '<div class="holding-name">' + escapeHtml(row.name) + '</div>' +
+          meta + flag +
+          (row.note ? '<div class="holding-meta">' + escapeHtml(row.note) + '</div>' : "") +
+        '</div>' +
+        '<div class="holding-pct">' + fmtPct(pct) + '</div>' +
+        '<div class="holding-value-wrap"><span class="euro">€</span><input type="number" step="0.01" min="0" data-bucket="' + bucket + '" data-id="' + row.id + '" value="' + row.value + '"></div>' +
+        '</div>';
+    });
+    document.getElementById(containerId).innerHTML = html;
+    document.getElementById(subtotalId).innerHTML = '<span>' + bucket + ' subtotal</span><strong>' + fmtEUR(total) + '</strong>';
+
+    document.querySelectorAll('#' + containerId + ' input[type="number"]').forEach(function (input) {
+      input.addEventListener("input", function () {
+        var b = input.getAttribute("data-bucket"), id = input.getAttribute("data-id");
+        var row = holdings[b].find(function (r) { return r.id === id; });
+        if (row) row.value = parseFloat(input.value) || 0;
+        saveHoldings();
+        withFocusPreserved(function () {
+          renderSummary();
+          renderHoldingsBucket(bucket, containerId, subtotalId);
+          renderGrowth();
+        });
+      });
+    });
+  }
+
+  /* ---------- growth / profit ---------- */
+  function gainClass(gainEUR) {
+    if (gainEUR === null) return "";
+    if (Math.abs(gainEUR) < 0.005) return "gain-flat";
+    return gainEUR > 0 ? "gain-pos" : "gain-neg";
+  }
+
+  function growthRow(bucket, row) {
+    if (bucket === "Bundesschatz") {
+      var basis = row.value;
+      var val = row.reinvestAmount;
+      var gainEUR = val - basis;
+      var gainPct = basis > 0 ? (gainEUR / basis * 100) : 0;
+      var label = row.maturityDate ? (row.name + " (matures " + fmtDate(row.maturityDate) + ")") : row.name;
+      return { id: row.id, name: label, basis: basis, val: val, gainEUR: gainEUR, gainPct: gainPct, editable: false };
+    }
+    var hasBasis = row.costBasis !== undefined && row.costBasis !== null && row.costBasis > 0;
+    var basisVal = hasBasis ? row.costBasis : null;
+    var gainEUR2 = hasBasis ? (row.value - basisVal) : null;
+    var gainPct2 = hasBasis ? (gainEUR2 / basisVal * 100) : null;
+    return { id: row.id, name: row.name, basis: basisVal, val: row.value, gainEUR: gainEUR2, gainPct: gainPct2, editable: true };
+  }
+
+  function renderGrowth() {
+    var buckets = ["Bundesschatz", "Crypto", "Stocks"];
+    var tableHtml = '<tr><th>Bucket</th><th>Holding</th><th>Cost basis</th><th>Value</th><th>Gain €</th><th>Gain %</th></tr>';
+    var bucketGain = { Bundesschatz: 0, Crypto: 0, Stocks: 0 };
+    var bucketTracked = { Crypto: 0, Stocks: 0 };
+    var bucketTotalRows = { Crypto: 0, Stocks: 0 };
+    var marketBasisSum = 0, marketGainSum = 0;
+
+    buckets.forEach(function (bucket) {
+      holdings[bucket].forEach(function (row) {
+        var g = growthRow(bucket, row);
+        var cls = gainClass(g.gainEUR);
+        var basisCell = g.editable
+          ? '<input type="number" step="0.01" min="0" placeholder="—" data-cb-bucket="' + bucket + '" data-cb-id="' + g.id + '" value="' + (g.basis === null ? "" : g.basis) + '">'
+          : fmtEUR(g.basis);
+        tableHtml += '<tr>' +
+          '<td>' + bucket + '</td>' +
+          '<td>' + escapeHtml(g.name) + '</td>' +
+          '<td>' + basisCell + '</td>' +
+          '<td>' + fmtEUR(g.val) + '</td>' +
+          '<td class="' + cls + '">' + (g.gainEUR === null ? "—" : (g.gainEUR >= 0 ? "+" : "") + fmtEUR(g.gainEUR)) + '</td>' +
+          '<td class="' + cls + '">' + (g.gainPct === null ? "—" : (g.gainPct >= 0 ? "+" : "") + fmtPct(g.gainPct)) + '</td>' +
+          '</tr>';
+
+        if (bucket === "Bundesschatz") {
+          bucketGain.Bundesschatz += g.gainEUR;
+        } else {
+          bucketTotalRows[bucket]++;
+          if (g.gainEUR !== null) {
+            bucketGain[bucket] += g.gainEUR;
+            bucketTracked[bucket]++;
+            marketBasisSum += g.basis;
+            marketGainSum += g.gainEUR;
+          }
+        }
+      });
+    });
+    document.getElementById("growthTable").innerHTML = tableHtml;
+
+    document.querySelectorAll('#growthTable input[type="number"]').forEach(function (input) {
+      input.addEventListener("input", function () {
+        var b = input.getAttribute("data-cb-bucket"), id = input.getAttribute("data-cb-id");
+        var row = holdings[b].find(function (r) { return r.id === id; });
+        if (row) row.costBasis = input.value === "" ? null : (parseFloat(input.value) || 0);
+        saveHoldings();
+        withFocusPreserved(renderGrowth);
+      });
+    });
+
+    var statsHtml = "";
+    statsHtml += '<div class="bucket-stat"><div class="label"><span class="dot" style="background:var(--c-bundesschatz)"></span>Bundesschatz</div>' +
+      '<div class="value gain-pos">+' + fmtEUR(bucketGain.Bundesschatz) + '</div>' +
+      '<div class="val-sub">interest to maturity</div></div>';
+    ["Crypto", "Stocks"].forEach(function (b) {
+      var cls = gainClass(bucketGain[b]);
+      statsHtml += '<div class="bucket-stat"><div class="label"><span class="dot" style="background:var(' + BUCKET_COLOR_VAR[b] + ')"></span>' + b + '</div>' +
+        '<div class="value ' + cls + '">' + (bucketGain[b] >= 0 ? "+" : "") + fmtEUR(bucketGain[b]) + '</div>' +
+        '<div class="val-sub">' + bucketTracked[b] + ' of ' + bucketTotalRows[b] + ' holdings tracked</div></div>';
+    });
+    document.getElementById("growthStats").innerHTML = statsHtml;
+
+    var marketPct = marketBasisSum > 0 ? (marketGainSum / marketBasisSum * 100) : 0;
+    var totalCls = gainClass(marketGainSum);
+    document.getElementById("growthTotal").innerHTML =
+      'Market gain/loss (crypto + stocks, tracked holdings only): <strong class="' + totalCls + '">' + (marketGainSum >= 0 ? "+" : "") + fmtEUR(marketGainSum) + ' (' + (marketPct >= 0 ? "+" : "") + fmtPct(marketPct) + ')</strong>' +
+      ' · Bundesschatz interest to maturity: <strong class="gain-pos">+' + fmtEUR(bucketGain.Bundesschatz) + '</strong>';
+  }
+
+  /* ---------- contributions ---------- */
+  function populateHoldingSelect() {
+    var buckets = ["Bundesschatz", "Crypto", "Stocks"];
+    var html = "";
+    buckets.forEach(function (bucket) {
+      html += '<optgroup label="' + bucket + '">';
+      holdings[bucket].forEach(function (row) {
+        html += '<option value="' + row.id + '">' + escapeHtml(row.name) + '</option>';
+      });
+      html += '</optgroup>';
+    });
+    document.getElementById("cHolding").innerHTML = html;
+  }
+
+  function updateFundingVisibility() {
+    var found = findHoldingById(document.getElementById("cHolding").value);
+    var bucket = found ? found.bucket : "";
+    document.getElementById("cFundingWrap").style.display = bucket === "Crypto" ? "" : "none";
+  }
+  document.getElementById("cHolding").addEventListener("change", updateFundingVisibility);
+
+  document.getElementById("contribForm").addEventListener("submit", function (e) {
+    e.preventDefault();
+    var holdingId = document.getElementById("cHolding").value;
+    var found = findHoldingById(holdingId);
+    if (!found) { showToast("Pick a holding"); return; }
+    var date = document.getElementById("cDate").value || todayISO();
+    var gross = parseFloat(document.getElementById("cGross").value) || 0;
+    var fee = parseFloat(document.getElementById("cFee").value) || 0;
+    var funding = found.bucket === "Crypto" ? document.getElementById("cFunding").value : "";
+    var note = document.getElementById("cNote").value.trim();
+    var applyToHolding = document.getElementById("cApply").checked;
+    if (gross <= 0) { showToast("Enter a gross amount"); return; }
+    var net = gross - fee;
+    contributions.push({
+      id: uid(), date: date, bucket: found.bucket, holdingId: holdingId, holdingName: found.row.name,
+      gross: gross, fee: fee, net: net, funding: funding, note: note, appliedToHolding: applyToHolding
+    });
+    saveContributions();
+    if (applyToHolding) {
+      found.row.value = Math.round((found.row.value + net) * 100) / 100;
+      if (found.bucket !== "Bundesschatz") {
+        var prevBasis = (found.row.costBasis !== undefined && found.row.costBasis !== null) ? found.row.costBasis : 0;
+        found.row.costBasis = Math.round((prevBasis + net) * 100) / 100;
+      }
+      saveHoldings();
+    }
+    document.getElementById("contribForm").reset();
+    document.getElementById("cDate").value = todayISO();
+    document.getElementById("cApply").checked = true;
+    updateFundingVisibility();
+    renderContributions();
+    if (applyToHolding) {
+      renderSummary();
+      renderGrowth();
+      renderHoldingsBucket("Bundesschatz", "rowsBundesschatz", "subtotalBundesschatz");
+      renderHoldingsBucket("Crypto", "rowsCrypto", "subtotalCrypto");
+      renderHoldingsBucket("Stocks", "rowsStocks", "subtotalStocks");
+    }
+    showToast(applyToHolding ? "Logged and added to holding" : "Contribution logged");
+  });
+
+  function renderContributions() {
+    var rows = contributions.slice().sort(function (a, b) { return b.date.localeCompare(a.date); });
+    var html = '<tr><th>Date</th><th>Holding</th><th>Bucket</th><th>Gross</th><th>Fee</th><th>Net</th><th>Funding</th><th>Note</th><th></th></tr>';
+    rows.forEach(function (c) {
+      html += '<tr>' +
+        '<td>' + fmtDate(c.date) + '</td>' +
+        '<td>' + escapeHtml(c.holdingName || "—") + '</td>' +
+        '<td>' + c.bucket + '</td>' +
+        '<td>' + fmtEUR(c.gross) + '</td>' +
+        '<td>' + fmtEUR(c.fee) + '</td>' +
+        '<td>' + fmtEUR(c.net) + '</td>' +
+        '<td>' + (c.funding || "—") + '</td>' +
+        '<td>' + (c.note ? escapeHtml(c.note) : "—") + '</td>' +
+        '<td><button type="button" class="del-btn" data-del="' + c.id + '" aria-label="Delete entry">✕</button></td>' +
+        '</tr>';
+    });
+    document.getElementById("contribTable").innerHTML = html;
+
+    document.querySelectorAll("[data-del]").forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        var id = btn.getAttribute("data-del");
+        if (!confirm("Delete this entry? This won't reverse any amount already added to the holding's value.")) return;
+        contributions = contributions.filter(function (c) { return c.id !== id; });
+        saveContributions();
+        renderContributions();
+      });
+    });
+
+    var buckets = ["Bundesschatz", "Crypto", "Stocks"];
+    var totalsHtml = "";
+    buckets.forEach(function (b) {
+      var list = contributions.filter(function (c) { return c.bucket === b; });
+      var gross = list.reduce(function (s, c) { return s + c.gross; }, 0);
+      var fee = list.reduce(function (s, c) { return s + c.fee; }, 0);
+      var feePct = gross > 0 ? (fee / gross * 100) : 0;
+      totalsHtml += '<div class="contrib-total-tile">' +
+        '<div class="label">' + b + '</div>' +
+        '<div class="val">' + fmtEUR(gross) + '</div>' +
+        '<div class="sub">' + fmtEUR(fee) + ' in fees (' + fmtPct(feePct, 2) + ')</div>' +
+        '</div>';
+    });
+    document.getElementById("contribTotals").innerHTML = totalsHtml;
+  }
+
+  /* ---------- reference toggle ---------- */
+  var refBtn = document.getElementById("toggleReference");
+  var refPanel = document.getElementById("referencePanel");
+  refBtn.addEventListener("click", function () {
+    refBtn.classList.toggle("open");
+    refPanel.classList.toggle("open");
+  });
+
+  /* ---------- export / import ---------- */
+  document.getElementById("exportBtn").addEventListener("click", function () {
+    var data = { holdings: holdings, contributions: contributions, pendingActions: pendingActions, theme: theme, exportedAt: new Date().toISOString() };
+    var blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement("a");
+    a.href = url;
+    a.download = "investment-tracker-backup-" + todayISO() + ".json";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    showToast("Exported");
+  });
+
+  document.getElementById("importBtn").addEventListener("click", function () {
+    document.getElementById("importFile").click();
+  });
+  document.getElementById("importFile").addEventListener("change", function (e) {
+    var file = e.target.files[0];
+    if (!file) return;
+    var reader = new FileReader();
+    reader.onload = function () {
+      try {
+        var data = JSON.parse(reader.result);
+        if (!confirm("Import will replace all current data. Continue?")) return;
+        if (data.holdings) holdings = data.holdings;
+        if (data.contributions) contributions = data.contributions;
+        if (data.pendingActions) pendingActions = data.pendingActions;
+        if (data.theme) theme = data.theme;
+        saveHoldings(); saveContributions(); savePending();
+        window.storage.set(KEYS.theme, theme);
+        applyTheme();
+        populateHoldingSelect();
+        updateFundingVisibility();
+        renderAll();
+        showToast("Imported");
+      } catch (err) {
+        showToast("Invalid file");
+      }
+    };
+    reader.readAsText(file);
+    e.target.value = "";
+  });
+
+  /* ---------- init ---------- */
+  function renderAll() {
+    renderSummary();
+    renderGrowth();
+    renderReminders();
+    renderHoldingsBucket("Bundesschatz", "rowsBundesschatz", "subtotalBundesschatz");
+    renderHoldingsBucket("Crypto", "rowsCrypto", "subtotalCrypto");
+    renderHoldingsBucket("Stocks", "rowsStocks", "subtotalStocks");
+    renderContributions();
+  }
+
+  document.getElementById("cDate").value = todayISO();
+  populateHoldingSelect();
+  updateFundingVisibility();
+  applyTheme();
+  renderAll();
+})();
+</script>
+
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
+  import {
+    getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged
+  } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-auth.js";
+  import {
+    getFirestore, doc, setDoc, onSnapshot
+  } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
+
+  /* Paste your Firebase project config from Project settings > Your apps here. */
+  var FIREBASE_CONFIG = {
+    apiKey: "AIzaSyBEQVKW-Rs9tgPVZspxOkIv44RRder5HTg",
+    authDomain: "invest-5c80f.firebaseapp.com",
+    projectId: "invest-5c80f",
+    storageBucket: "invest-5c80f.firebasestorage.app",
+    messagingSenderId: "559759702912",
+    appId: "1:559759702912:web:fcd2ba5b530560d6f71f65"
+  };
+
+  if (FIREBASE_CONFIG.apiKey === "YOUR_API_KEY") {
+    if (window.__onCloudSyncUnconfigured) window.__onCloudSyncUnconfigured();
+  } else {
+    try {
+      var app = initializeApp(FIREBASE_CONFIG);
+      var auth = getAuth(app);
+      var db = getFirestore(app);
+      var provider = new GoogleAuthProvider();
+      var unsubSnapshot = null;
+
+      var cloudSync = {
+        signIn: function () {
+          return signInWithPopup(auth, provider).catch(function (e) {
+            console.error("Sign-in failed:", e);
+            if (window.__onCloudSyncError) window.__onCloudSyncError("Sign-in failed");
+          });
+        },
+        signOutUser: function () { return signOut(auth); },
+        onAuthChange: function (cb) { onAuthStateChanged(auth, cb); },
+        save: function (uidStr, data) {
+          return setDoc(doc(db, "trackers", uidStr), data).catch(function (e) {
+            console.error("Cloud save failed:", e);
+            if (window.__onCloudSyncError) window.__onCloudSyncError("Sync save failed");
+          });
+        },
+        watch: function (uidStr, cb) {
+          if (unsubSnapshot) unsubSnapshot();
+          unsubSnapshot = onSnapshot(doc(db, "trackers", uidStr), function (snap) {
+            cb(snap.exists() ? snap.data() : null);
+          }, function (err) {
+            console.error("Cloud watch failed:", err);
+            if (window.__onCloudSyncError) window.__onCloudSyncError("Sync connection failed");
+          });
+        },
+        stopWatch: function () { if (unsubSnapshot) { unsubSnapshot(); unsubSnapshot = null; } }
+      };
+
+      window.cloudSync = cloudSync;
+      if (window.__onCloudSyncReady) window.__onCloudSyncReady(cloudSync);
+    } catch (e) {
+      console.error("Firebase init failed:", e);
+      if (window.__onCloudSyncError) window.__onCloudSyncError("Cloud sync failed to load");
+    }
+  }
+</script>
+</body>
+</html>
