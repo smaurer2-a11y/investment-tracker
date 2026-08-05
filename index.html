@@ -215,6 +215,23 @@
   .holding-row input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
   .holding-row input[type="number"]:focus { border-color: var(--accent); outline: none; }
   .holding-pct { font-size: 11px; color: var(--text-faint); width: 44px; text-align: right; flex-shrink: 0; }
+  .qty-wrap { flex-direction: column; align-items: flex-end; gap: 4px; }
+  .qty-wrap input[type="number"] { width: 130px; }
+  .qty-wrap .computed-value { font-size: 12px; color: var(--text-dim); }
+
+  .price-bar {
+    display: flex; align-items: center; gap: 8px;
+    font-size: 12px; color: var(--text-dim); margin-bottom: 12px;
+  }
+  .price-bar .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--text-faint); flex-shrink: 0; }
+  .price-bar .dot.online { background: var(--success); }
+  .price-bar .dot.error { background: var(--danger); }
+  .price-bar span.label { flex: 1; }
+  .price-bar button {
+    background: none; border: 1px solid var(--border); color: var(--text-dim);
+    border-radius: 999px; padding: 4px 10px; font-size: 11px; font-weight: 600; cursor: pointer; flex-shrink: 0;
+  }
+  .price-bar button:active { background: var(--bg-card-hover); }
   .bucket-subtotal { display: flex; justify-content: space-between; padding-top: 12px; margin-top: 4px; border-top: 1px solid var(--border); font-size: 13px; color: var(--text-dim); }
   .bucket-subtotal strong { color: var(--text); font-family: var(--serif); font-size: 15px; }
   .redirect-check { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-dim); margin-top: 5px; cursor: pointer; user-select: none; }
@@ -344,6 +361,11 @@
 
   <section class="card">
     <h2>Crypto (Bitstamp)</h2>
+    <div class="price-bar" id="priceBar">
+      <span class="dot" id="priceDot"></span>
+      <span class="label" id="priceText">Live prices not loaded yet</span>
+      <button type="button" id="priceRefreshBtn">Refresh</button>
+    </div>
     <div class="holding-rows" id="rowsCrypto"></div>
     <div class="bucket-subtotal" id="subtotalCrypto"></div>
   </section>
@@ -502,14 +524,14 @@
       { id: "bs-2", name: "1-Month Term", value: 0, rate: 2.20, maturityDate: "", reinvestAmount: 0, redirectHandled: false }
     ],
     Crypto: [
-      { id: "btc", name: "Bitcoin (BTC)", value: 0, costBasis: null },
-      { id: "eth", name: "Ethereum (ETH)", value: 0, costBasis: null },
-      { id: "sol", name: "Solana (SOL)", value: 0, costBasis: null },
-      { id: "xrp", name: "XRP", value: 0, costBasis: null },
-      { id: "ada", name: "Cardano (ADA)", value: 0, costBasis: null },
-      { id: "bch", name: "Bitcoin Cash (BCH)", value: 0, costBasis: null },
-      { id: "link", name: "Chainlink (LINK)", value: 0, costBasis: null },
-      { id: "avax", name: "Avalanche (AVAX)", value: 0, costBasis: null },
+      { id: "btc", name: "Bitcoin (BTC)", value: 0, costBasis: null, qty: 0, cgId: "bitcoin" },
+      { id: "eth", name: "Ethereum (ETH)", value: 0, costBasis: null, qty: 0, cgId: "ethereum" },
+      { id: "sol", name: "Solana (SOL)", value: 0, costBasis: null, qty: 0, cgId: "solana" },
+      { id: "xrp", name: "XRP", value: 0, costBasis: null, qty: 0, cgId: "ripple" },
+      { id: "ada", name: "Cardano (ADA)", value: 0, costBasis: null, qty: 0, cgId: "cardano" },
+      { id: "bch", name: "Bitcoin Cash (BCH)", value: 0, costBasis: null, qty: 0, cgId: "bitcoin-cash" },
+      { id: "link", name: "Chainlink (LINK)", value: 0, costBasis: null, qty: 0, cgId: "chainlink" },
+      { id: "avax", name: "Avalanche (AVAX)", value: 0, costBasis: null, qty: 0, cgId: "avalanche-2" },
       { id: "crypto-unalloc", name: "Unallocated (not yet itemized by coin)", value: 0, costBasis: null },
       { id: "crypto-cash", name: "Idle EUR cash", value: 0, costBasis: null }
     ],
@@ -533,6 +555,7 @@
   var contributions = window.storage.get(KEYS.contributions, []);
   var pendingActions = window.storage.get(KEYS.pending, DEFAULT_PENDING);
   var theme = window.storage.get(KEYS.theme, "dark");
+  var lastPrices = {};
 
   function saveHoldings() { window.storage.set(KEYS.holdings, holdings); queueCloudSave(); }
   function saveContributions() { window.storage.set(KEYS.contributions, contributions); queueCloudSave(); }
@@ -825,11 +848,20 @@
       var metaBits = [];
       if (row.rate !== undefined) metaBits.push(row.rate.toFixed(2) + "% p.a.");
       if (row.maturityDate) metaBits.push("matures " + fmtDate(row.maturityDate));
+      if (row.cgId && lastPrices[row.cgId] !== undefined) {
+        metaBits.push("@ " + fmtEUR(lastPrices[row.cgId]) + "/coin");
+      }
       var meta = metaBits.length ? '<div class="holding-meta">' + metaBits.join(" · ") + '</div>' : "";
       var flag = "";
       if (row.flag) {
         flag = '<div class="holding-flag ' + row.flag + '">' + (row.flag === "selling" ? "Being sold" : "Tax-loss candidate") + '</div>';
       }
+      var valueWrap = row.cgId
+        ? '<div class="holding-value-wrap qty-wrap">' +
+            '<input type="number" step="0.00000001" min="0" data-qty-bucket="' + bucket + '" data-qty-id="' + row.id + '" value="' + row.qty + '">' +
+            '<span class="computed-value">' + fmtEUR(row.value) + '</span>' +
+          '</div>'
+        : '<div class="holding-value-wrap"><span class="euro">€</span><input type="number" step="0.01" min="0" data-bucket="' + bucket + '" data-id="' + row.id + '" value="' + row.value + '"></div>';
       html += '<div class="holding-row">' +
         '<div class="holding-main">' +
           '<div class="holding-name">' + escapeHtml(row.name) + '</div>' +
@@ -837,13 +869,13 @@
           (row.note ? '<div class="holding-meta">' + escapeHtml(row.note) + '</div>' : "") +
         '</div>' +
         '<div class="holding-pct">' + fmtPct(pct) + '</div>' +
-        '<div class="holding-value-wrap"><span class="euro">€</span><input type="number" step="0.01" min="0" data-bucket="' + bucket + '" data-id="' + row.id + '" value="' + row.value + '"></div>' +
+        valueWrap +
         '</div>';
     });
     document.getElementById(containerId).innerHTML = html;
     document.getElementById(subtotalId).innerHTML = '<span>' + bucket + ' subtotal</span><strong>' + fmtEUR(total) + '</strong>';
 
-    document.querySelectorAll('#' + containerId + ' input[type="number"]').forEach(function (input) {
+    document.querySelectorAll('#' + containerId + ' input[data-id]').forEach(function (input) {
       input.addEventListener("input", function () {
         var b = input.getAttribute("data-bucket"), id = input.getAttribute("data-id");
         var row = holdings[b].find(function (r) { return r.id === id; });
@@ -856,7 +888,67 @@
         });
       });
     });
+
+    document.querySelectorAll('#' + containerId + ' input[data-qty-id]').forEach(function (input) {
+      input.addEventListener("input", function () {
+        var b = input.getAttribute("data-qty-bucket"), id = input.getAttribute("data-qty-id");
+        var row = holdings[b].find(function (r) { return r.id === id; });
+        if (row) {
+          row.qty = parseFloat(input.value) || 0;
+          if (row.cgId && lastPrices[row.cgId] !== undefined) {
+            row.value = Math.round(row.qty * lastPrices[row.cgId] * 100) / 100;
+          }
+        }
+        saveHoldings();
+        withFocusPreserved(function () {
+          renderSummary();
+          renderHoldingsBucket(bucket, containerId, subtotalId);
+          renderGrowth();
+        });
+      });
+    });
   }
+
+  /* ---------- live crypto prices ---------- */
+  var priceRefreshTimer = null;
+  function setPriceStatus(state, text) {
+    var dot = document.getElementById("priceDot");
+    if (dot) dot.className = "dot " + state;
+    var t = document.getElementById("priceText");
+    if (t) t.textContent = text;
+  }
+  function refreshCryptoPrices() {
+    var cgIds = [];
+    holdings.Crypto.forEach(function (row) { if (row.cgId) cgIds.push(row.cgId); });
+    if (cgIds.length === 0) return;
+    setPriceStatus("", "Fetching live prices…");
+    fetch("https://api.coingecko.com/api/v3/simple/price?ids=" + cgIds.join(",") + "&vs_currencies=eur")
+      .then(function (r) {
+        if (!r.ok) throw new Error("HTTP " + r.status);
+        return r.json();
+      })
+      .then(function (prices) {
+        holdings.Crypto.forEach(function (row) {
+          if (row.cgId && prices[row.cgId] && typeof prices[row.cgId].eur === "number") {
+            lastPrices[row.cgId] = prices[row.cgId].eur;
+            row.value = Math.round((row.qty || 0) * prices[row.cgId].eur * 100) / 100;
+          }
+        });
+        saveHoldings();
+        var now = new Date();
+        var timeStr = String(now.getHours()).padStart(2, "0") + ":" + String(now.getMinutes()).padStart(2, "0");
+        setPriceStatus("online", "Live prices updated " + timeStr);
+        withFocusPreserved(function () {
+          renderSummary();
+          renderHoldingsBucket("Crypto", "rowsCrypto", "subtotalCrypto");
+          renderGrowth();
+        });
+      })
+      .catch(function (e) {
+        setPriceStatus("error", "Price refresh failed — showing last known values");
+      });
+  }
+  document.getElementById("priceRefreshBtn").addEventListener("click", refreshCryptoPrices);
 
   /* ---------- growth / profit ---------- */
   function gainClass(gainEUR) {
@@ -1101,6 +1193,7 @@
         populateHoldingSelect();
         updateFundingVisibility();
         renderAll();
+        refreshCryptoPrices();
         showToast("Imported");
       } catch (err) {
         showToast("Invalid file");
@@ -1126,6 +1219,8 @@
   updateFundingVisibility();
   applyTheme();
   renderAll();
+  refreshCryptoPrices();
+  priceRefreshTimer = setInterval(refreshCryptoPrices, 5 * 60 * 1000);
 })();
 </script>
 
