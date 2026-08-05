@@ -156,6 +156,7 @@
   table.growth-table { width: 100%; border-collapse: collapse; font-size: 12.5px; min-width: 560px; }
   table.growth-table th { text-align: left; color: var(--text-faint); font-weight: 600; font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.03em; padding: 7px 8px; border-bottom: 1px solid var(--border); white-space: nowrap; }
   table.growth-table td { padding: 8px 8px; border-bottom: 1px solid var(--border); white-space: nowrap; }
+  .growth-price-sub { font-size: 10.5px; color: var(--text-faint); font-weight: 400; margin-top: 2px; }
   table.growth-table input[type="number"] {
     width: 90px; background: var(--bg-elevated); border: 1px solid var(--border); color: var(--text);
     border-radius: var(--radius-sm); padding: 6px 8px; text-align: right;
@@ -1066,7 +1067,7 @@
 
   function renderGrowth() {
     var buckets = ["Bundesschatz", "Crypto", "Stocks"];
-    var tableHtml = '<tr><th>Bucket</th><th>Holding</th><th>Price</th><th>Cost basis</th><th>Value</th><th>Gain</th></tr>';
+    var tableHtml = '<tr><th>Bucket</th><th>Holding</th><th>Cost basis</th><th>Value</th><th>Gain</th></tr>';
     var bucketGain = { Bundesschatz: 0, Crypto: 0, Stocks: 0 };
     var bucketBasisSum = { Crypto: 0, Stocks: 0 };
     var bucketTracked = { Crypto: 0, Stocks: 0 };
@@ -1080,11 +1081,12 @@
           ? '<input type="number" step="0.01" min="0" placeholder="—" data-cb-bucket="' + bucket + '" data-cb-id="' + g.id + '" value="' + (g.basis === null ? "" : g.basis) + '">'
           : fmtEUR(g.basis);
         var livePrice = rowLivePrice(row);
-        var priceCell = livePrice !== undefined ? (fmtEUR(livePrice) + (row.cgId ? "/coin" : "/share")) : "—";
+        var priceSub = livePrice !== undefined
+          ? '<div class="growth-price-sub">' + fmtEUR(livePrice) + (row.cgId ? "/coin" : "/share") + '</div>'
+          : "";
         tableHtml += '<tr>' +
           '<td>' + bucket + '</td>' +
-          '<td>' + escapeHtml(g.name) + '</td>' +
-          '<td>' + priceCell + '</td>' +
+          '<td>' + escapeHtml(g.name) + priceSub + '</td>' +
           '<td>' + basisCell + '</td>' +
           '<td>' + fmtEUR(g.val) + '</td>' +
           '<td class="' + cls + '">' + (g.gainEUR === null ? "—" : (g.gainEUR >= 0 ? "+" : "") + fmtEUR(g.gainEUR) + " (" + (g.gainPct >= 0 ? "+" : "") + fmtPct(g.gainPct) + ")") + '</td>' +
