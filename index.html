@@ -1066,7 +1066,7 @@
 
   function renderGrowth() {
     var buckets = ["Bundesschatz", "Crypto", "Stocks"];
-    var tableHtml = '<tr><th>Bucket</th><th>Holding</th><th>Cost basis</th><th>Value</th><th>Gain €</th><th>Gain %</th></tr>';
+    var tableHtml = '<tr><th>Bucket</th><th>Holding</th><th>Price</th><th>Cost basis</th><th>Value</th><th>Gain €</th><th>Gain %</th></tr>';
     var bucketGain = { Bundesschatz: 0, Crypto: 0, Stocks: 0 };
     var bucketBasisSum = { Crypto: 0, Stocks: 0 };
     var bucketTracked = { Crypto: 0, Stocks: 0 };
@@ -1079,9 +1079,12 @@
         var basisCell = g.editable
           ? '<input type="number" step="0.01" min="0" placeholder="—" data-cb-bucket="' + bucket + '" data-cb-id="' + g.id + '" value="' + (g.basis === null ? "" : g.basis) + '">'
           : fmtEUR(g.basis);
+        var livePrice = rowLivePrice(row);
+        var priceCell = livePrice !== undefined ? (fmtEUR(livePrice) + (row.cgId ? "/coin" : "/share")) : "—";
         tableHtml += '<tr>' +
           '<td>' + bucket + '</td>' +
           '<td>' + escapeHtml(g.name) + '</td>' +
+          '<td>' + priceCell + '</td>' +
           '<td>' + basisCell + '</td>' +
           '<td>' + fmtEUR(g.val) + '</td>' +
           '<td class="' + cls + '">' + (g.gainEUR === null ? "—" : (g.gainEUR >= 0 ? "+" : "") + fmtEUR(g.gainEUR)) + '</td>' +
