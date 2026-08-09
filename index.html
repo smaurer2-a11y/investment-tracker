@@ -1358,7 +1358,12 @@
 
       var cloudSync = {
         signIn: function () {
-          return signInWithRedirect(auth, provider);
+          return signInWithRedirect(auth, provider).catch(function (e) {
+            console.error("Sign-in redirect failed to start:", e);
+            if (window.__onCloudSyncError) {
+              window.__onCloudSyncError("Sign-in failed: " + (e && e.code ? e.code : (e && e.message ? e.message : "unknown")));
+            }
+          });
         },
         signOutUser: function () { return signOut(auth); },
         onAuthChange: function (cb) { onAuthStateChanged(auth, cb); },
