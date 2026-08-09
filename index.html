@@ -1325,7 +1325,7 @@
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
   import {
-    getAuth, GoogleAuthProvider, signInWithRedirect, getRedirectResult, signOut, onAuthStateChanged
+    getAuth, GoogleAuthProvider, signInWithRedirect, getRedirectResult, signInWithPopup, signOut, onAuthStateChanged
   } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-auth.js";
   import {
     getFirestore, doc, setDoc, onSnapshot
@@ -1356,10 +1356,13 @@
         if (window.__onCloudSyncError) window.__onCloudSyncError("Sign-in failed");
       });
 
+      var isMobile = /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+
       var cloudSync = {
         signIn: function () {
-          return signInWithRedirect(auth, provider).catch(function (e) {
-            console.error("Sign-in redirect failed to start:", e);
+          var method = isMobile ? signInWithRedirect(auth, provider) : signInWithPopup(auth, provider);
+          return method.catch(function (e) {
+            console.error("Sign-in failed to start:", e);
             if (window.__onCloudSyncError) {
               window.__onCloudSyncError("Sign-in failed: " + (e && e.code ? e.code : (e && e.message ? e.message : "unknown")));
             }
