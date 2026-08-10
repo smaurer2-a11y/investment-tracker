@@ -341,6 +341,12 @@
   </section>
 
   <section class="card">
+    <h2>Portfolio Over Time</h2>
+    <div class="chart-wrap" id="historyChartWrap"></div>
+    <div class="growth-total" id="historyChange"></div>
+  </section>
+
+  <section class="card">
     <h2>Growth &amp; Profit</h2>
     <div class="bucket-stats" id="growthStats"></div>
     <div class="growth-total" id="growthTotal"></div>
@@ -519,7 +525,8 @@
     contributions: "invtrack_contributions_v1",
     pending: "invtrack_pending_v1",
     theme: "invtrack_theme_v1",
-    updatedAt: "invtrack_updated_at_v1"
+    updatedAt: "invtrack_updated_at_v1",
+    history: "invtrack_history_v1"
   };
 
   var TARGETS = { Bundesschatz: 18.1, Crypto: 25.1, Stocks: 56.8 };
@@ -564,6 +571,7 @@
   var holdings = window.storage.get(KEYS.holdings, DEFAULT_HOLDINGS);
   var contributions = window.storage.get(KEYS.contributions, []);
   var pendingActions = window.storage.get(KEYS.pending, DEFAULT_PENDING);
+  var history = window.storage.get(KEYS.history, []);
   var theme = window.storage.get(KEYS.theme, "dark");
   var lastPrices = {};
   var lastStockPrices = {};
@@ -576,6 +584,7 @@
   function saveHoldings() { window.storage.set(KEYS.holdings, holdings); queueCloudSave(); }
   function saveContributions() { window.storage.set(KEYS.contributions, contributions); queueCloudSave(); }
   function savePending() { window.storage.set(KEYS.pending, pendingActions); queueCloudSave(); }
+  function saveHistory() { window.storage.set(KEYS.history, history); queueCloudSave(); }
 
   /* ---------- cloud sync (Firebase, optional) ---------- */
   var cloudUser = null;
@@ -584,7 +593,7 @@
   var lastKnownUpdatedAt = window.storage.get(KEYS.updatedAt, 0);
 
   function buildCloudPayload(ts) {
-    return { holdings: holdings, contributions: contributions, pendingActions: pendingActions, theme: theme, updatedAt: ts };
+    return { holdings: holdings, contributions: contributions, pendingActions: pendingActions, history: history, theme: theme, updatedAt: ts };
   }
   function queueCloudSave() {
     if (!cloudUser || applyingCloudSnapshot || !window.cloudSync) return;
@@ -603,6 +612,7 @@
     if (data.holdings) holdings = data.holdings;
     if (data.contributions) contributions = data.contributions;
     if (data.pendingActions) pendingActions = data.pendingActions;
+    if (data.history) history = data.history;
     if (data.updatedAt) {
       lastKnownUpdatedAt = data.updatedAt;
       window.storage.set(KEYS.updatedAt, lastKnownUpdatedAt);
@@ -610,6 +620,7 @@
     window.storage.set(KEYS.holdings, holdings);
     window.storage.set(KEYS.contributions, contributions);
     window.storage.set(KEYS.pending, pendingActions);
+    window.storage.set(KEYS.history, history);
     try {
       populateHoldingSelect();
       updateFundingVisibility();
@@ -768,8 +779,10 @@
 
     var buckets = ["Bundesschatz", "Crypto", "Stocks"];
     var statsHtml = "";
+    var bucketVals = {};
     buckets.forEach(function (b) {
       var val = bucketTotal(b);
+      bucketVals[b] = val;
       var pct = total > 0 ? (val / total * 100) : 0;
       statsHtml += '<div class="bucket-stat">' +
         '<div class="label"><span class="dot" style="background:var(' + BUCKET_COLOR_VAR[b] + ')"></span>' + b + '</div>' +
@@ -778,6 +791,9 @@
         '</div>';
     });
     document.getElementById("bucketStats").innerHTML = statsHtml;
+
+    recordSnapshot(total, bucketVals.Bundesschatz, bucketVals.Crypto, bucketVals.Stocks);
+    renderHistoryChart();
 
     /* stacked bar chart: current vs target */
     var W = 600, barH = 34, gap = 14, labelW = 64;
@@ -824,6 +840,65 @@
       driftHtml += '<tr><td>' + b + '</td><td>' + fmtPct(pct) + '</td><td>' + fmtPct(target) + '</td><td class="delta ' + cls + '">' + sign + fmtPct(delta) + '</td></tr>';
     });
     document.getElementById("driftTable").innerHTML = driftHtml;
+  }
+
+  /* ---------- portfolio value history ---------- */
+  function recordSnapshot(total, bundesschatz, crypto, stocks) {
+    var today = todayISO();
+    var last = history.length ? history[history.length - 1] : null;
+    if (last && last.date === today) {
+      if (last.total !== total || last.bundesschatz !== bundesschatz || last.crypto !== crypto || last.stocks !== stocks) {
+        last.total = total; last.bundesschatz = bundesschatz; last.crypto = crypto; last.stocks = stocks;
+        saveHistory();
+      }
+    } else if (!last || last.date < today) {
+      history.push({ date: today, total: total, bundesschatz: bundesschatz, crypto: crypto, stocks: stocks });
+      saveHistory();
+    }
+  }
+
+  function renderHistoryChart() {
+    var wrap = document.getElementById("historyChartWrap");
+    var changeEl = document.getElementById("historyChange");
+    if (!wrap) return;
+    var points = history.slice().sort(function (a, b) { return a.date.localeCompare(b.date); });
+
+    if (points.length < 2) {
+      wrap.innerHTML = '<div class="empty-note">Check back after a few days — this fills in as your portfolio value gets tracked over time.</div>';
+      changeEl.innerHTML = "";
+      return;
+    }
+
+    var values = points.map(function (p) { return p.total; });
+    var minV = Math.min.apply(null, values);
+    var maxV = Math.max.apply(null, values);
+    if (minV === maxV) { minV -= 1; maxV += 1; }
+
+    var W = 600, H = 200, pad = 10;
+    var plotW = W - pad * 2, plotH = H - pad * 2;
+    var n = points.length;
+    function px(i) { return pad + (n === 1 ? 0 : (i / (n - 1)) * plotW); }
+    function py(v) { return pad + plotH - ((v - minV) / (maxV - minV)) * plotH; }
+
+    var pathD = "M" + points.map(function (p, i) { return px(i) + "," + py(p.total); }).join(" L");
+    var areaD = pathD + " L" + px(n - 1) + "," + (pad + plotH) + " L" + px(0) + "," + (pad + plotH) + " Z";
+    var circles = points.map(function (p, i) {
+      return '<circle cx="' + px(i) + '" cy="' + py(p.total) + '" r="3" fill="var(--accent)"><title>' + fmtDate(p.date) + ": " + fmtEUR(p.total) + '</title></circle>';
+    }).join("");
+
+    var svg = '<svg viewBox="0 0 ' + W + ' ' + H + '" xmlns="http://www.w3.org/2000/svg">' +
+      '<path d="' + areaD + '" fill="var(--accent)" fill-opacity="0.12" stroke="none"></path>' +
+      '<path d="' + pathD + '" fill="none" stroke="var(--accent)" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"></path>' +
+      circles +
+      '</svg>';
+    var legend = '<div class="chart-legend"><span>' + fmtDate(points[0].date) + '</span><span style="margin-left:auto;">' + fmtDate(points[n - 1].date) + '</span></div>';
+    wrap.innerHTML = svg + legend;
+
+    var first = points[0].total, last = points[n - 1].total;
+    var change = last - first;
+    var changePct = first > 0 ? (change / first * 100) : 0;
+    var cls = gainClass(change);
+    changeEl.innerHTML = 'Since ' + fmtDate(points[0].date) + ': <strong class="' + cls + '">' + (change >= 0 ? "+" : "") + fmtEUR(change) + ' (' + (changePct >= 0 ? "+" : "") + fmtPct(changePct) + ')</strong>';
   }
 
   /* ---------- reminders ---------- */
@@ -1254,7 +1329,7 @@
 
   /* ---------- export / import ---------- */
   document.getElementById("exportBtn").addEventListener("click", function () {
-    var data = { holdings: holdings, contributions: contributions, pendingActions: pendingActions, theme: theme, exportedAt: new Date().toISOString() };
+    var data = { holdings: holdings, contributions: contributions, pendingActions: pendingActions, history: history, theme: theme, exportedAt: new Date().toISOString() };
     var blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
     var url = URL.createObjectURL(blob);
     var a = document.createElement("a");
@@ -1281,8 +1356,9 @@
         if (data.holdings) holdings = data.holdings;
         if (data.contributions) contributions = data.contributions;
         if (data.pendingActions) pendingActions = data.pendingActions;
+        if (data.history) history = data.history;
         if (data.theme) theme = data.theme;
-        saveHoldings(); saveContributions(); savePending();
+        saveHoldings(); saveContributions(); savePending(); saveHistory();
         window.storage.set(KEYS.theme, theme);
         applyTheme();
         populateHoldingSelect();
