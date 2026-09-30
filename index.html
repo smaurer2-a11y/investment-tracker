@@ -585,6 +585,7 @@
   }
 
   function saveHoldings() { window.storage.set(KEYS.holdings, holdings); queueCloudSave(); }
+  function saveHoldingsBucket(bucket) { window.storage.set(KEYS.holdings, holdings); queueCloudSaveBucket(bucket); }
   function saveContributions() { window.storage.set(KEYS.contributions, contributions); queueCloudSave(); }
   function savePending() { window.storage.set(KEYS.pending, pendingActions); queueCloudSave(); }
   function saveHistory() { window.storage.set(KEYS.history, history); queueCloudSave(); }
@@ -606,6 +607,20 @@
     clearTimeout(cloudSaveTimer);
     cloudSaveTimer = setTimeout(function () {
       window.cloudSync.save(cloudUser.uid, buildCloudPayload(ts));
+    }, 800);
+  }
+  var cloudBucketSaveTimers = {};
+  function queueCloudSaveBucket(bucket) {
+    if (!cloudUser || applyingCloudSnapshot || !window.cloudSync || !window.cloudSync.updateFields) return;
+    lastKnownUpdatedAt = Date.now();
+    window.storage.set(KEYS.updatedAt, lastKnownUpdatedAt);
+    var ts = lastKnownUpdatedAt;
+    clearTimeout(cloudBucketSaveTimers[bucket]);
+    cloudBucketSaveTimers[bucket] = setTimeout(function () {
+      var fields = {};
+      fields["holdings." + bucket] = holdings[bucket];
+      fields.updatedAt = ts;
+      window.cloudSync.updateFields(cloudUser.uid, fields);
     }, 800);
   }
   function applyCloudSnapshot(data) {
@@ -1044,7 +1059,7 @@
             row.value = Math.round((row.qty || 0) * prices[row.cgId].eur * 100) / 100;
           }
         });
-        saveHoldings();
+        saveHoldingsBucket("Crypto");
         var now = new Date();
         var timeStr = String(now.getHours()).padStart(2, "0") + ":" + String(now.getMinutes()).padStart(2, "0");
         setPriceStatus("online", "Live prices updated " + timeStr);
@@ -1103,7 +1118,7 @@
               row.value = Math.round((row.qty || 0) * lastStockPrices[row.ticker] * 100) / 100;
             }
           });
-          saveHoldings();
+          saveHoldingsBucket("Stocks");
           var now = new Date();
           var timeStr = String(now.getHours()).padStart(2, "0") + ":" + String(now.getMinutes()).padStart(2, "0");
           setStockPriceStatus("online", "Live prices updated " + timeStr);
@@ -1407,7 +1422,7 @@
     getAuth, GoogleAuthProvider, signInWithRedirect, getRedirectResult, signInWithPopup, signOut, onAuthStateChanged
   } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-auth.js";
   import {
-    getFirestore, doc, setDoc, onSnapshot
+    getFirestore, doc, setDoc, updateDoc, onSnapshot
   } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
 
   /* Paste your Firebase project config from Project settings > Your apps here. */
@@ -1452,6 +1467,12 @@
         save: function (uidStr, data) {
           return setDoc(doc(db, "trackers", uidStr), data).catch(function (e) {
             console.error("Cloud save failed:", e);
+            if (window.__onCloudSyncError) window.__onCloudSyncError("Sync save failed");
+          });
+        },
+        updateFields: function (uidStr, fields) {
+          return updateDoc(doc(db, "trackers", uidStr), fields).catch(function (e) {
+            console.error("Cloud partial update failed:", e);
             if (window.__onCloudSyncError) window.__onCloudSyncError("Sync save failed");
           });
         },
